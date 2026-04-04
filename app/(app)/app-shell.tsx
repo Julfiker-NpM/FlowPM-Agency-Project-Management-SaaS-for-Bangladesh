@@ -8,6 +8,7 @@ import { useFlowAuth } from "@/context/flowpm-auth-context";
 import { AppSidebar } from "@/components/flowpm/app-sidebar";
 import { TopBar } from "@/components/flowpm/top-bar";
 import { FirebaseEnvMissingMessage } from "@/components/flowpm/firebase-env-missing-message";
+import { WorkspaceRecoveryForm } from "@/components/flowpm/workspace-recovery-form";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,15 +41,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!profile || !orgId || !org) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-flowpm-canvas px-4 text-center">
-        <p className="text-sm text-flowpm-muted">No workspace linked to this account.</p>
-        <p className="text-xs text-flowpm-muted">Sign up again with a new organization or contact support.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-flowpm-canvas px-4 py-12">
+        <div className="max-w-md text-center">
+          <p className="text-base font-medium text-flowpm-dark">Finish setting up your workspace</p>
+          <p className="mt-2 text-sm text-flowpm-muted">
+            You&apos;re signed in, but FlowPM doesn&apos;t have a workspace for this account yet. That can happen if
+            setup was interrupted. Create your organization below—no need to register again.
+          </p>
+        </div>
+        <WorkspaceRecoveryForm />
         <button
           type="button"
-          className="mt-2 text-sm text-flowpm-primary hover:underline"
+          className="text-sm text-flowpm-primary hover:underline"
           onClick={() => signOut(getFirebaseAuth())}
         >
-          Sign out
+          Sign out and use a different account
         </button>
       </div>
     );
