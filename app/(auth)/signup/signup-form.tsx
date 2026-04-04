@@ -3,13 +3,44 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { FirebaseError } from "firebase/app";
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  updateProfile,
+} from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { createWorkspaceForNewUser } from "@/lib/firebase/create-workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+function firebaseErrorMessage(err: unknown): string {
+  const code = err instanceof FirebaseError ? err.code : "";
+  if (code === "auth/email-already-in-use") {
+    return "An account with this email already exists.";
+  }
+  if (code === "auth/weak-password") {
+    return "Password is too weak.";
+  }
+  if (code === "auth/invalid-email") {
+    return "Enter a valid email address.";
+  }
+  if (code === "auth/unauthorized-domain") {
+    return "This site's domain is not allowed for sign-in. In Firebase Console → Authentication → Settings, add your Vercel URL under Authorized domains.";
+  }
+  if (code === "auth/operation-not-allowed") {
+    return "Email/password sign-in is disabled. Enable it in Firebase Console → Authentication → Sign-in method.";
+  }
+  if (code === "permission-denied") {
+    return "Database access was denied. Deploy Firestore security rules from this repo (firebase deploy --only firestore:rules) or paste firestore.rules in the Firebase Console.";
+  }
+  if (code === "auth/too-many-requests") {
+    return "Too many attempts. Wait a few minutes and try again.";
+  }
+  return "Could not create account. Try again.";
+}
 
 export function SignupForm() {
   const router = useRouter();
@@ -38,26 +69,26 @@ export function SignupForm() {
     try {
       const auth = getFirebaseAuth();
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(cred.user, { displayName: name });
-      await createWorkspaceForNewUser({
-        uid: cred.user.uid,
-        email,
-        displayName: name,
-        orgName: org,
-      });
+      try {
+        await updateProfile(cred.user, { displayName: name });
+        await createWorkspaceForNewUser({
+          uid: cred.user.uid,
+          email,
+          displayName: name,
+          orgName: org,
+        });
+      } catch (inner) {
+        try {
+          await deleteUser(cred.user);
+        } catch {
+          /* ignore rollback failure */
+        }
+        throw inner;
+      }
       router.replace("/dashboard");
       router.refresh();
     } catch (err: unknown) {
-      const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
-      if (code === "auth/email-already-in-use") {
-        setError("An account with this email already exists.");
-      } else if (code === "auth/weak-password") {
-        setError("Password is too weak.");
-      } else if (code === "auth/invalid-email") {
-        setError("Enter a valid email address.");
-      } else {
-        setError("Could not create account. Try again.");
-      }
+      setError(firebaseErrorMessage(err));
     } finally {
       setPending(false);
     }
