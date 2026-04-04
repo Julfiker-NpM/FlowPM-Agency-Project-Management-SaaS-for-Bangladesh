@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOrgMember(orgId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function orgRole(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role;
+    }
+
+    function isOrgAdmin(orgId) {
+      return isOrgMember(orgId) && orgRole(orgId) in ['owner', 'admin'];
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isOrgMember(orgId) || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOrgAdmin(orgId);
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if signedIn() && request.auth.uid == memberId;
+        allow update: if isOrgAdmin(orgId);
+        allow delete: if isOrgAdmin(orgId);
+      }
+
+      match /clients/{clientId} {
+        allow read, write: if isOrgMember(orgId);
+      }
+
+      match /projects/{projectId} {
+        allow read, write: if isOrgMember(orgId);
+
+        match /tasks/{taskId} {
+          allow read, write: if isOrgMember(orgId);
+        }
+      }
+
+      match /timeEntries/{entryId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isOrgMember(orgId) && resource.data.userId == request.auth.uid;
+      }
+
+      match /taskComments/{commentId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isOrgMember(orgId) && resource.data.userId == request.auth.uid;
+      }
+    }
+  }
+}

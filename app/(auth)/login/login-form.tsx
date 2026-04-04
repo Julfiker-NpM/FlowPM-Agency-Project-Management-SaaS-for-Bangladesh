@@ -1,8 +1,10 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useState } from "react";
 import Link from "next/link";
-import { loginAction, type AuthFormState } from "@/app/actions/auth";
+import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,36 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
-  const [state, formAction] = useFormState(loginAction, null as AuthFormState);
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim();
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    setPending(true);
+    try {
+      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+      const dest = nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+      router.replace(dest);
+      router.refresh();
+    } catch (err: unknown) {
+      const code =
+        err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+      if (code === "auth/invalid-credential" || code === "auth/user-not-found" || code === "auth/wrong-password") {
+        setError("Invalid email or password.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Try again later.");
+      } else {
+        setError("Could not sign in. Check your credentials and try again.");
+      }
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <Card className="border-flowpm-border shadow-card">
@@ -19,8 +50,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         <p className="text-sm text-flowpm-muted">Sign in to FlowPM</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form action={formAction} className="space-y-4">
-          <input type="hidden" name="next" value={nextPath} />
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" required autoComplete="email" className="h-10" />
@@ -32,14 +62,18 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
               name="password"
               type="password"
               required
-              minLength={8}
+              minLength={6}
               autoComplete="current-password"
               className="h-10"
             />
           </div>
-          {state?.error ? <p className="text-xs text-flowpm-danger">{state.error}</p> : null}
-          <Button type="submit" className="h-10 w-full bg-flowpm-primary hover:bg-flowpm-primary-hover">
-            Sign in
+          {error ? <p className="text-xs text-flowpm-danger">{error}</p> : null}
+          <Button
+            type="submit"
+            disabled={pending}
+            className="h-10 w-full bg-flowpm-primary hover:bg-flowpm-primary-hover"
+          >
+            {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
         <div className="relative">

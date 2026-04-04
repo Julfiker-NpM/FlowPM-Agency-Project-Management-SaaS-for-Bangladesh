@@ -8,7 +8,6 @@ import { Plus, ChevronDown, LogOut } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { logoutAction } from "@/app/actions/auth";
 
 function initials(name: string | null, email: string) {
   const n = name?.trim();
@@ -26,8 +25,12 @@ export type TopBarUser = {
   email: string;
 };
 
-export function TopBar(props: { user: TopBarUser; organizationName: string }) {
-  const { user, organizationName } = props;
+export function TopBar(props: {
+  user: TopBarUser;
+  organizationName: string;
+  onSignOut: () => void;
+}) {
+  const { user, organizationName, onSignOut } = props;
   const pathname = usePathname();
   const title = titleForPath(pathname);
   const displayName = user.name?.trim() || user.email.split("@")[0] || "Account";
@@ -78,15 +81,14 @@ export function TopBar(props: { user: TopBarUser; organizationName: string }) {
               <p className="mt-2 truncate text-xs text-flowpm-muted">{organizationName}</p>
             </div>
             <div className="p-1">
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-flowpm-danger transition-colors hover:bg-red-50"
-                >
-                  <LogOut className="size-4 shrink-0" aria-hidden />
-                  Sign out
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-flowpm-danger transition-colors hover:bg-red-50"
+              >
+                <LogOut className="size-4 shrink-0" aria-hidden />
+                Sign out
+              </button>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>

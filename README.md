@@ -1,39 +1,47 @@
 # FlowPM
 
-Project management SaaS scaffold based on **FlowPM_Build_Guide.docx** — agencies: clients, projects, Kanban-style tasks, time, billing (roadmap).
+Agency-style project management: **Firebase Authentication** + **Cloud Firestore** (no Prisma/SQLite in this branch).
 
-## Stack (from guide)
+## Stack
 
-- **Next.js 14** (App Router), **Tailwind**, **shadcn/ui** (Base UI), **Framer Motion**, **Zustand**, **React Hook Form** + **Zod**
-- **Prisma 7** + **SQLite** locally (swap `DATABASE_URL` to **Supabase Postgres** for production)
-- **NextAuth**, **Stripe**, **Resend** — not wired yet (see guide weeks 3–4, 16)
+- **Next.js 14** (App Router), **Tailwind**, **shadcn/ui**, **Framer Motion**, **Zustand**
+- **Firebase Auth** (email/password)
+- **Firestore** with `firestore.rules` (deploy before production)
 
-## Run locally
+## Setup
 
-```bash
-cd flowpm
-npm install
-cp .env.example .env
-npx prisma migrate dev
-npm run dev
-```
+1. Create a **Firebase** project, enable **Authentication** → Email/Password, enable **Firestore** (production mode).
+2. Add a **Web app** and copy config into `.env` (see `.env.example`).
+3. Deploy rules:
 
-Open [http://localhost:3000](http://localhost:3000) — landing → **Open app (demo)** or `/dashboard`.
+   ```bash
+   npm i -g firebase-tools
+   firebase login
+   firebase deploy --only firestore:rules --project YOUR_PROJECT_ID
+   ```
 
-## What’s implemented (MVP shell)
+4. Install and run:
 
-- FlowPM **color palette**, **Plus Jakarta Sans** + **Inter**, sidebar + top bar (guide layout)
-- **Dashboard** — stat cards, projects progress, my tasks, activity (sample data)
-- **Projects** — grid, **New project** form (React Hook Form), **project detail** with tabs + Kanban columns (static cards; drag-and-drop next)
-- **Team**, **Time**, **Settings** — UI placeholders
-- **Login / Signup / Forgot password** — UI only (redirects to dashboard for demo)
-- **Prisma schema** — `User`, `Organization`, `OrgMember`, `Client`, `Project`, `Task`, `TaskComment`, `TimeEntry`, `Invoice` per guide §03
+   ```bash
+   cd flowpm
+   npm install
+   cp .env.example .env
+   # fill NEXT_PUBLIC_FIREBASE_* values
+   npm run dev
+   ```
 
-## Next steps (guide)
+Open [http://localhost:3000](http://localhost:3000) → **Sign up** creates a user, Firestore `users` doc, `organizations` doc, and `members/{uid}`.
 
-1. **Supabase** + move `DATABASE_URL` to Postgres; keep Prisma migrations.
-2. **NextAuth.js** (Google + email) and org onboarding.
-3. **API routes / Server Actions** for CRUD; replace mock data.
-4. **@dnd-kit** (or similar) for Kanban; **Stripe** + **Resend** per roadmap.
+## Data model (Firestore)
 
-Deploy on **Vercel**; set env vars and run `prisma migrate deploy` in CI.
+- `users/{uid}` — profile + `currentOrgId`
+- `organizations/{orgId}` — workspace
+- `organizations/{orgId}/members/{uid}` — role, name, email
+- `organizations/{orgId}/clients/{clientId}`
+- `organizations/{orgId}/projects/{projectId}` + subcollection `tasks/{taskId}`
+- `organizations/{orgId}/timeEntries/{entryId}`
+- `organizations/{orgId}/taskComments/{commentId}` — optional feed (dashboard)
+
+## Deploy (e.g. Vercel)
+
+Set the same `NEXT_PUBLIC_FIREBASE_*` env vars. Ensure Firestore rules are deployed in Firebase Console.

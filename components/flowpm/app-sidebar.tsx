@@ -7,7 +7,6 @@ import { mainNav } from "@/lib/nav";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUiStore } from "@/lib/store/ui-store";
 import { Menu } from "lucide-react";
-import { logoutAction } from "@/app/actions/auth";
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -40,9 +39,10 @@ type AppSidebarProps = {
   userDisplayName: string;
   userEmail: string;
   organizationName: string;
+  onSignOut: () => void;
 };
 
-export function AppSidebar({ userDisplayName, userEmail, organizationName }: AppSidebarProps) {
+export function AppSidebar({ userDisplayName, userEmail, organizationName, onSignOut }: AppSidebarProps) {
   const { mobileNavOpen, setMobileNavOpen } = useUiStore();
 
   return (
@@ -63,14 +63,13 @@ export function AppSidebar({ userDisplayName, userEmail, organizationName }: App
             <p className="truncate text-sm font-medium text-flowpm-body">{userDisplayName}</p>
             <p className="truncate text-xs text-flowpm-muted">{userEmail}</p>
           </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-flowpm-muted transition-colors hover:bg-flowpm-canvas hover:text-flowpm-body"
-            >
-              Sign out
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-flowpm-muted transition-colors hover:bg-flowpm-canvas hover:text-flowpm-body"
+          >
+            Sign out
+          </button>
         </div>
       </aside>
 
@@ -98,14 +97,16 @@ export function AppSidebar({ userDisplayName, userEmail, organizationName }: App
                 <p className="truncate text-sm font-medium text-flowpm-body">{userDisplayName}</p>
                 <p className="truncate text-xs text-flowpm-muted">{userEmail}</p>
               </div>
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-flowpm-muted transition-colors hover:bg-flowpm-canvas hover:text-flowpm-body"
-                >
-                  Sign out
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => {
+                  onSignOut();
+                  setMobileNavOpen(false);
+                }}
+                className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-flowpm-muted transition-colors hover:bg-flowpm-canvas hover:text-flowpm-body"
+              >
+                Sign out
+              </button>
             </div>
           </SheetContent>
         </Sheet>
