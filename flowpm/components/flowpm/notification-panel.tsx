@@ -486,7 +486,9 @@ export function NotificationBell(props: {
       >
         <div className="border-b border-flowpm-border px-3 py-2">
           <p className="text-sm font-semibold text-flowpm-dark">Notifications</p>
-          <p className="text-xs text-flowpm-muted">Invites, your tasks, and team comments (live)</p>
+          <p className="text-xs text-flowpm-muted">
+            Invites, assigned tasks, and teammate comments (live). Open Reports for hours and workload.
+          </p>
         </div>
 
         {inviteError || tasksError || commentsError ? (

@@ -29,6 +29,27 @@ service cloud.firestore {
       );
     }
 
+    // Read-only client portal snapshots (document ID = secret token). No list queries.
+    match /portalLinks/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn() &&
+        request.resource.data.orgId is string &&
+        request.resource.data.projectId is string &&
+        request.resource.data.projectName is string &&
+        request.resource.data.taskCounts is map &&
+        isOrgMember(request.resource.data.orgId) &&
+        isOrgAdmin(request.resource.data.orgId);
+      allow update: if signedIn() &&
+        resource.data.orgId is string &&
+        isOrgMember(resource.data.orgId) &&
+        isOrgAdmin(resource.data.orgId);
+      allow delete: if signedIn() &&
+        resource.data.orgId is string &&
+        isOrgMember(resource.data.orgId) &&
+        isOrgAdmin(resource.data.orgId);
+    }
+
     match /users/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow create: if signedIn() && request.auth.uid == userId;
@@ -101,6 +122,12 @@ service cloud.firestore {
         allow read: if isOrgMember(orgId);
         allow create: if isOrgMember(orgId) && request.resource.data.userId == request.auth.uid;
         allow update, delete: if isOrgMember(orgId) && resource.data.userId == request.auth.uid;
+      }
+
+      match /invoices/{invoiceId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update: if isOrgMember(orgId);
+        allow delete: if isOrgAdmin(orgId);
       }
     }
   }

@@ -8,13 +8,15 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
-import { getFirebaseDb } from "@/lib/firebase/client";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import { firestoreToDate } from "@/lib/firebase/firestore-dates";
 import { PageMotion } from "@/components/flowpm/page-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,6 +58,12 @@ function toInputDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function randomPortalToken(): string {
+  const a = new Uint8Array(24);
+  crypto.getRandomValues(a);
+  return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export type TaskRow = {
   id: string;
   title: string;
@@ -75,6 +83,7 @@ type ProjectSnapshot = {
   color: string;
   status: string;
   dueDate: Date | null;
+  clientPortalToken: string | null;
 };
 
 function mapTaskDoc(id: string, data: Record<string, unknown>): TaskRow {
@@ -124,6 +133,31 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalMessage, setPortalMessage] = useState<string | null>(null);
+  const [portalOrigin, setPortalOrigin] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setPortalOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    const uid = getFirebaseAuth().currentUser?.uid;
+    if (!uid) {
+      setIsOrgAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    getDoc(doc(db, "organizations", orgId, "members", uid)).then((snap) => {
+      if (cancelled) return;
+      const role = String((snap.data() as Record<string, unknown> | undefined)?.role ?? "");
+      setIsOrgAdmin(role === "owner" || role === "admin");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, orgId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +198,7 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
           color: String(d.color ?? "#534AB7"),
           status: String(d.status ?? "active"),
           dueDate: due,
+          clientPortalToken: (d.clientPortalToken as string) || null,
         });
         setSettingsDraft((prev) => ({
           ...prev,
@@ -340,6 +375,79 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
       setSettingsError("Could not update project.");
     } finally {
       setSettingsSaving(false);
+    }
+  }
+
+  async function pushPortalSnapshot(token: string) {
+    if (!project) return;
+    const taskCounts: Record<string, number> = {};
+    for (const s of STATUS_ORDER) taskCounts[s] = tasks.filter((t) => t.status === s).length;
+    const total = tasks.length;
+    const completionPercent = total ? Math.round((taskCounts.done / total) * 100) : 0;
+    await setDoc(
+      doc(db, "portalLinks", token),
+      {
+        orgId,
+        projectId,
+        projectName: project.name,
+        clientLabel: project.clientName || "Client",
+        projectStatus: project.status,
+        taskCounts,
+        completionPercent,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
+  async function createClientPortalLink() {
+    if (!project || !isOrgAdmin) return;
+    setPortalMessage(null);
+    setPortalBusy(true);
+    try {
+      const token = randomPortalToken();
+      await pushPortalSnapshot(token);
+      await updateDoc(doc(db, "organizations", orgId, "projects", projectId), {
+        clientPortalToken: token,
+      });
+      setPortalMessage("Share link created. Copy it below.");
+    } catch {
+      setPortalMessage("Could not create portal link. Try again as an admin.");
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function refreshClientPortalSnapshot() {
+    const token = project?.clientPortalToken;
+    if (!token || !isOrgAdmin) return;
+    setPortalMessage(null);
+    setPortalBusy(true);
+    try {
+      await pushPortalSnapshot(token);
+      setPortalMessage("Portal snapshot updated.");
+    } catch {
+      setPortalMessage("Could not refresh portal.");
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function revokeClientPortalLink() {
+    const token = project?.clientPortalToken;
+    if (!token || !isOrgAdmin) return;
+    setPortalMessage(null);
+    setPortalBusy(true);
+    try {
+      await deleteDoc(doc(db, "portalLinks", token));
+      await updateDoc(doc(db, "organizations", orgId, "projects", projectId), {
+        clientPortalToken: deleteField(),
+      });
+      setPortalMessage("Client portal link revoked.");
+    } catch {
+      setPortalMessage("Could not revoke portal.");
+    } finally {
+      setPortalBusy(false);
     }
   }
 
@@ -727,6 +835,59 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                   {settingsSaving ? "Saving…" : "Save project"}
                 </Button>
               </form>
+              {isOrgAdmin ? (
+                <div className="mx-auto mt-10 max-w-md border-t border-flowpm-border pt-8">
+                  <h3 className="font-heading text-sm font-semibold text-flowpm-dark">Client portal</h3>
+                  <p className="mt-1 text-xs text-flowpm-muted">
+                    Read-only progress for clients. The link shows column counts and completion (no sign-in).
+                  </p>
+                  {portalMessage ? <p className="mt-2 text-xs text-flowpm-body">{portalMessage}</p> : null}
+                  {project?.clientPortalToken ? (
+                    <div className="mt-3 space-y-2">
+                      <Label className="text-xs">Share link</Label>
+                      <Input
+                        readOnly
+                        className="h-9 font-mono text-[11px]"
+                        value={
+                          portalOrigin
+                            ? `${portalOrigin}/portal/${project.clientPortalToken}`
+                            : `/portal/${project.clientPortalToken}`
+                        }
+                        onFocus={(e) => e.target.select()}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={portalBusy}
+                          onClick={() => void refreshClientPortalSnapshot()}
+                        >
+                          Refresh snapshot
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          disabled={portalBusy}
+                          onClick={() => void revokeClientPortalLink()}
+                        >
+                          Revoke link
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      className="mt-3 bg-flowpm-primary hover:bg-flowpm-primary-hover"
+                      disabled={portalBusy}
+                      onClick={() => void createClientPortalLink()}
+                    >
+                      Create share link
+                    </Button>
+                  )}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
