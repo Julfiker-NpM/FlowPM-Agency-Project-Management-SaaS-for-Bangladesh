@@ -7,8 +7,10 @@ import { useFlowAuth } from "@/context/flowpm-auth-context";
 import { TeamClient, type TeamMemberRow } from "./team-client";
 
 export default function TeamPage() {
-  const { orgId } = useFlowAuth();
+  const { orgId, org, firebaseUser } = useFlowAuth();
+  const uid = firebaseUser?.uid ?? "";
   const [members, setMembers] = useState<TeamMemberRow[] | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!orgId) return;
@@ -35,12 +37,32 @@ export default function TeamPage() {
     return () => {
       cancelled = true;
     };
-  }, [orgId]);
+  }, [orgId, reloadKey]);
 
-  if (!orgId) return null;
+  useEffect(() => {
+    function onFocus() {
+      setReloadKey((k) => k + 1);
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  if (!orgId || !org) return null;
   if (!members) {
     return <p className="text-sm text-flowpm-muted">Loading team…</p>;
   }
 
-  return <TeamClient members={members} />;
+  const myRole = members.find((m) => m.id === uid)?.role ?? "";
+  const canInvite = myRole === "owner" || myRole === "admin";
+
+  return (
+    <TeamClient
+      members={members}
+      orgId={orgId}
+      organizationName={org.name}
+      currentUserId={uid}
+      canInvite={canInvite}
+      reloadKey={reloadKey}
+    />
+  );
 }

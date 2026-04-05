@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -60,19 +61,19 @@ const config: Config = {
           "5": "var(--chart-5)",
         },
         flowpm: {
-          primary: "#534AB7",
-          "primary-hover": "#3C3489",
-          "primary-light": "#EEEDFE",
-          "primary-mid": "#7F77DD",
-          dark: "#1A1A2E",
-          body: "#2C2C3E",
-          muted: "#6B6B80",
-          border: "#E0E0EE",
-          canvas: "#F4F4F8",
-          surface: "#FFFFFF",
-          success: "#0F6E56",
-          warning: "#BA7517",
-          danger: "#A32D2D",
+          primary: "var(--flowpm-primary)",
+          "primary-hover": "var(--flowpm-primary-hover)",
+          "primary-light": "var(--flowpm-primary-light)",
+          "primary-mid": "var(--flowpm-primary-mid)",
+          dark: "var(--flowpm-dark)",
+          body: "var(--flowpm-body)",
+          muted: "var(--flowpm-muted)",
+          border: "var(--flowpm-border)",
+          canvas: "var(--flowpm-canvas)",
+          surface: "var(--flowpm-surface)",
+          success: "var(--flowpm-success)",
+          warning: "var(--flowpm-warning)",
+          danger: "var(--flowpm-danger)",
         },
       },
       fontFamily: {

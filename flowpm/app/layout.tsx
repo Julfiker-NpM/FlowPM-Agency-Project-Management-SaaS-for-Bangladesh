@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AppProviders } from "./providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,8 +36,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("theme", inter.variable, plusJakarta.variable, jetbrains.variable)}>
-      <body className="min-h-screen antialiased">{children}</body>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={cn("theme", inter.variable, plusJakarta.variable, jetbrains.variable)}
+    >
+      <body className="min-h-screen antialiased">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }
