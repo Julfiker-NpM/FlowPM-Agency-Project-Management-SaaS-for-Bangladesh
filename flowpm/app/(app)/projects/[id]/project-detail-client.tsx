@@ -697,8 +697,9 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                       value={settingsDraft.status}
                       onChange={(e) => setSettingsDraft((s) => ({ ...s, status: e.target.value }))}
                       className={cn(
-                        "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm",
+                        "h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground",
                         "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                        "dark:bg-input/30",
                       )}
                     >
                       <option value="active">Active</option>
@@ -778,8 +779,9 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                     setTaskDraft((d) => ({ ...d, status: normalizeStatus(e.target.value) }))
                   }
                   className={cn(
-                    "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm",
+                    "h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground",
                     "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "dark:bg-input/30",
                   )}
                 >
                   {STATUS_ORDER.map((s) => (
@@ -796,8 +798,9 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                   value={taskDraft.priority}
                   onChange={(e) => setTaskDraft((d) => ({ ...d, priority: e.target.value }))}
                   className={cn(
-                    "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm",
+                    "h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground",
                     "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "dark:bg-input/30",
                   )}
                 >
                   {PRIORITIES.map((p) => (
@@ -815,8 +818,9 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                 value={taskDraft.assigneeId}
                 onChange={(e) => setTaskDraft((d) => ({ ...d, assigneeId: e.target.value }))}
                 className={cn(
-                  "h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm",
+                  "h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground",
                   "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                  "dark:bg-input/30",
                 )}
               >
                 <option value="">Unassigned</option>
