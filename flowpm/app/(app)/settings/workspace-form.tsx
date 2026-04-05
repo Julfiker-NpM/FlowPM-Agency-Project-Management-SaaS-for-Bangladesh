@@ -8,19 +8,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { SubscriptionPanel } from "./subscription-panel";
 
-export function WorkspaceForm(props: { orgId: string; orgName: string; plan: string }) {
-  const { orgId, orgName, plan } = props;
+export function WorkspaceForm(props: {
+  orgId: string;
+  orgName: string;
+  plan: string;
+  canEditOrgSettings: boolean;
+  canManageBilling: boolean;
+}) {
+  const { orgId, orgName, plan, canEditOrgSettings, canManageBilling } = props;
   const { refreshProfile } = useFlowAuth();
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
   const [pending, setPending] = useState(false);
 
-  const planLabel = plan === "free" ? "Free" : plan === "pro" ? "Pro" : plan;
-
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!canEditOrgSettings) return;
     setError(null);
     setOk(false);
     const form = e.currentTarget;
@@ -60,6 +65,7 @@ export function WorkspaceForm(props: { orgId: string; orgName: string; plan: str
                 required
                 minLength={2}
                 key={orgName}
+                disabled={!canEditOrgSettings}
               />
             </div>
             <div className="space-y-2">
@@ -69,9 +75,12 @@ export function WorkspaceForm(props: { orgId: string; orgName: string; plan: str
             </div>
             {error ? <p className="text-xs text-flowpm-danger">{error}</p> : null}
             {ok ? <p className="text-xs text-[#0F6E56]">Saved.</p> : null}
+            {!canEditOrgSettings ? (
+              <p className="text-xs text-flowpm-muted">Only owners and admins can change the workspace name.</p>
+            ) : null}
             <Button
               type="submit"
-              disabled={pending}
+              disabled={pending || !canEditOrgSettings}
               className="h-10 bg-flowpm-primary hover:bg-flowpm-primary-hover"
             >
               {pending ? "Saving…" : "Save"}
@@ -79,21 +88,7 @@ export function WorkspaceForm(props: { orgId: string; orgName: string; plan: str
           </form>
         </CardContent>
       </Card>
-      <Card className="border-flowpm-border shadow-card">
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">Billing</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-flowpm-muted">
-          <p>
-            Plan: <strong className="text-flowpm-body">{planLabel}</strong>
-          </p>
-          <Separator />
-          <p>Stripe billing can connect here when you enable payments.</p>
-          <Button variant="outline" className="h-10" type="button" disabled>
-            Manage subscription
-          </Button>
-        </CardContent>
-      </Card>
+      <SubscriptionPanel orgId={orgId} plan={plan} canManageBilling={canManageBilling} />
     </div>
   );
 }
