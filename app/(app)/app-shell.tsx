@@ -12,14 +12,14 @@ import { WorkspaceRecoveryForm } from "@/components/flowpm/workspace-recovery-fo
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { firebaseUser, profile, org, orgId, loading, configMissing } = useFlowAuth();
+  const { firebaseUser, profile, org, orgId, loading, configMissing, authReady } = useFlowAuth();
 
   useEffect(() => {
-    if (configMissing) return;
+    if (configMissing || !authReady) return;
     if (!loading && !firebaseUser) {
       router.replace("/login");
     }
-  }, [loading, firebaseUser, router, configMissing]);
+  }, [configMissing, authReady, loading, firebaseUser, router]);
 
   if (configMissing) {
     return (
@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (loading || !firebaseUser) {
+  if (!authReady || loading || !firebaseUser) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-flowpm-canvas text-sm text-flowpm-muted">
         Loading…

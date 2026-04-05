@@ -31,6 +31,8 @@ type FlowAuthState = {
   org: OrgSummary | null;
   orgId: string | null;
   loading: boolean;
+  /** True after the first onAuthStateChanged callback finishes (avoids flash / wrong redirects on layout changes). */
+  authReady: boolean;
   /** Set when NEXT_PUBLIC_FIREBASE_* are missing (e.g. Vercel env not added / redeploy needed). */
   configMissing: boolean;
   refreshProfile: () => Promise<void>;
@@ -77,6 +79,7 @@ export function FlowAuthProvider({ children }: { children: ReactNode }) {
   const [org, setOrg] = useState<OrgSummary | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [configMissing, setConfigMissing] = useState(false);
 
   const refreshProfile = useCallback(async () => {
@@ -98,6 +101,7 @@ export function FlowAuthProvider({ children }: { children: ReactNode }) {
     if (!isFirebaseConfigured()) {
       setConfigMissing(true);
       setLoading(false);
+      setAuthReady(true);
       return;
     }
     const auth = getFirebaseAuth();
@@ -108,6 +112,7 @@ export function FlowAuthProvider({ children }: { children: ReactNode }) {
         setOrg(null);
         setOrgId(null);
         setLoading(false);
+        setAuthReady(true);
         return;
       }
       try {
@@ -117,6 +122,7 @@ export function FlowAuthProvider({ children }: { children: ReactNode }) {
         setOrgId(next.orgId);
       } finally {
         setLoading(false);
+        setAuthReady(true);
       }
     });
   }, []);
@@ -128,10 +134,11 @@ export function FlowAuthProvider({ children }: { children: ReactNode }) {
       org,
       orgId,
       loading,
+      authReady,
       configMissing,
       refreshProfile,
     }),
-    [firebaseUser, profile, org, orgId, loading, configMissing, refreshProfile],
+    [firebaseUser, profile, org, orgId, loading, authReady, configMissing, refreshProfile],
   );
 
   return <FlowAuthContext.Provider value={value}>{children}</FlowAuthContext.Provider>;

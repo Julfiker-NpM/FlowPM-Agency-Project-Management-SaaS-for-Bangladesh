@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { getRedirectResult, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { signInWithGooglePopupOrRedirect } from "@/lib/firebase/google-sign-in";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,25 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const dest = nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+    void (async () => {
+      try {
+        const auth = getFirebaseAuth();
+        const result = await getRedirectResult(auth);
+        if (cancelled || !result?.user) return;
+        router.replace(dest);
+        router.refresh();
+      } catch {
+        /* invalid/expired redirect state */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nextPath, router]);
 
   function googleErrorMessage(err: unknown): string {
     const code =
@@ -41,9 +61,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
     setGooglePending(true);
     try {
       const auth = getFirebaseAuth();
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: "select_account" });
-      await signInWithPopup(auth, provider);
+      await signInWithGooglePopupOrRedirect(auth);
       const dest = nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
       router.replace(dest);
       router.refresh();
@@ -126,7 +144,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           type="button"
           className="h-10 w-full border-flowpm-border text-flowpm-dark hover:bg-flowpm-muted/40"
           disabled={pending || googlePending}
-          onClick={onGoogleSignIn}
+          onClick={() => void onGoogleSignIn()}
         >
           {googlePending ? "Connecting…" : "Continue with Google"}
         </Button>

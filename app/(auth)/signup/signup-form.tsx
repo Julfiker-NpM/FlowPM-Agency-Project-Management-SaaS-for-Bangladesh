@@ -9,11 +9,13 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { signInWithGooglePopupOrRedirect } from "@/lib/firebase/google-sign-in";
 import { createWorkspaceForNewUser } from "@/lib/firebase/create-workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 /** Firestore/Auth errors are plain objects at runtime; `instanceof FirebaseError` often fails after Next bundles. */
 function getFirebaseErrCode(err: unknown): string {
@@ -63,10 +65,42 @@ function firebaseErrorMessage(err: unknown): string {
   return "Could not create account. Try again.";
 }
 
+function googleSignupErrorMessage(err: unknown): string {
+  const code =
+    err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+  if (code === "auth/popup-closed-by-user") return "";
+  if (code === "auth/account-exists-with-different-credential") {
+    return "This email already uses email/password. Log in with your password instead.";
+  }
+  if (code === "auth/unauthorized-domain") {
+    return "This domain is not allowed. In Firebase Console → Authentication → Settings, add your site under Authorized domains.";
+  }
+  if (code === "auth/operation-not-allowed") {
+    return "Google sign-in is not enabled in Firebase (Authentication → Sign-in method).";
+  }
+  return "Could not sign in with Google. Try again.";
+}
+
 export function SignupForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
+
+  async function onGoogleSignup() {
+    setError(null);
+    setGooglePending(true);
+    try {
+      await signInWithGooglePopupOrRedirect(getFirebaseAuth());
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (err: unknown) {
+      const msg = googleSignupErrorMessage(err);
+      if (msg) setError(msg);
+    } finally {
+      setGooglePending(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -123,7 +157,24 @@ export function SignupForm() {
         <p className="text-sm text-flowpm-muted">Start your agency on FlowPM</p>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <div className="space-y-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 w-full border-flowpm-border text-flowpm-dark hover:bg-flowpm-muted/40"
+            disabled={pending || googlePending}
+            onClick={() => void onGoogleSignup()}
+          >
+            {googlePending ? "Connecting…" : "Continue with Google"}
+          </Button>
+          <div className="relative">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-flowpm-surface px-2 text-xs text-flowpm-muted">
+              or create with email
+            </span>
+          </div>
+        </div>
+        <form onSubmit={onSubmit} className="mt-4 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Your name</Label>
             <Input id="name" name="name" required minLength={2} autoComplete="name" className="h-10" />
@@ -158,7 +209,7 @@ export function SignupForm() {
           {error ? <p className="text-xs text-flowpm-danger">{error}</p> : null}
           <Button
             type="submit"
-            disabled={pending}
+            disabled={pending || googlePending}
             className="h-10 w-full bg-flowpm-primary hover:bg-flowpm-primary-hover"
           >
             {pending ? "Creating…" : "Create account"}

@@ -14,7 +14,7 @@ function InvitePageInner() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("org")?.trim() ?? "";
   const token = searchParams.get("t")?.trim() ?? "";
-  const { firebaseUser, loading, refreshProfile } = useFlowAuth();
+  const { firebaseUser, loading, refreshProfile, authReady } = useFlowAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteOrgName, setInviteOrgName] = useState<string | null>(null);
@@ -36,12 +36,12 @@ function InvitePageInner() {
   }, [orgId, token, firebaseUser?.email]);
 
   useEffect(() => {
-    if (loading) return;
+    if (!authReady || loading) return;
     if (!orgId || !token) return;
     if (firebaseUser) return;
     const next = `/invite?org=${encodeURIComponent(orgId)}&t=${encodeURIComponent(token)}`;
     router.replace(`/login?next=${encodeURIComponent(next)}`);
-  }, [loading, firebaseUser, orgId, token, router]);
+  }, [authReady, loading, firebaseUser, orgId, token, router]);
 
   async function accept() {
     const user = getFirebaseAuth().currentUser;
@@ -120,10 +120,10 @@ function InvitePageInner() {
     );
   }
 
-  if (loading || !firebaseUser) {
+  if (!authReady || loading || !firebaseUser) {
     return (
       <p className="text-center text-sm text-flowpm-muted">
-        {loading ? "Loading…" : "Redirecting to sign in…"}
+        {!authReady || loading ? "Loading…" : "Redirecting to sign in…"}
       </p>
     );
   }
