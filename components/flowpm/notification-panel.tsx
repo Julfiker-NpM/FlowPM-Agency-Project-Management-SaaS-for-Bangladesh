@@ -2,18 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   collectionGroup,
   limit,
   onSnapshot,
-  orderBy,
   query,
+  Timestamp,
   where,
   type QueryDocumentSnapshot,
   type QuerySnapshot,
 } from "firebase/firestore";
-import { getFirebaseDb } from "@/lib/firebase/client";
+import type { FirebaseError } from "firebase/app";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import { Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/lib/button-variants";
@@ -106,6 +108,22 @@ function mapAssignedTasks(
   return rows;
 }
 
+function firestoreListenerMessage(err: unknown): string {
+  const e = err as FirebaseError;
+  if (e?.code === "permission-denied") {
+    return "Permission denied — deploy latest Firestore rules for this project.";
+  }
+  if (e?.code === "failed-precondition") {
+    return "Missing Firestore index — run firebase deploy --only firestore:indexes.";
+  }
+  return e?.message ?? "Query failed";
+}
+
+function createdAtMs(v: unknown): number {
+  if (v instanceof Timestamp) return v.toMillis();
+  return 0;
+}
+
 function notifyDesktop(title: string, body: string, tag: string) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
@@ -117,20 +135,37 @@ function notifyDesktop(title: string, body: string, tag: string) {
 }
 
 export function NotificationBell(props: {
-  /** Profile or auth email; invite docs match auth token email (lowercase). */
+  /** Profile or auth email; invite queries prefer Firebase Auth email to match security rules. */
   userEmail: string;
   userId: string;
   orgId: string;
 }) {
   const { userEmail, userId, orgId } = props;
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [authHydrated, setAuthHydrated] = useState(false);
+
+  useEffect(() => {
+    const auth = getFirebaseAuth();
+    return onAuthStateChanged(auth, (user) => {
+      const e = user?.email?.trim().toLowerCase() ?? "";
+      setAuthEmail(e.includes("@") ? e : null);
+      setAuthHydrated(true);
+    });
+  }, []);
+
   const normalizedEmail = useMemo(() => {
-    const e = userEmail.trim().toLowerCase();
-    return e.includes("@") ? e : "";
-  }, [userEmail]);
+    const prop = userEmail.trim().toLowerCase();
+    const propOk = prop.includes("@") ? prop : "";
+    if (!authHydrated) return propOk;
+    return authEmail ?? propOk;
+  }, [authHydrated, authEmail, userEmail]);
 
   const [invites, setInvites] = useState<InviteNotificationRow[]>([]);
   const [tasks, setTasks] = useState<TaskAssignRow[]>([]);
   const [comments, setComments] = useState<TaskCommentRow[]>([]);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [desktopPermission, setDesktopPermission] = useState<
     NotificationPermission | "unsupported"
@@ -153,6 +188,7 @@ export function NotificationBell(props: {
     const unsub = onSnapshot(
       q,
       (snapshot) => {
+        setInviteError(null);
         const rows = mapInviteDocs(snapshot);
         if (!first) {
           for (const ch of snapshot.docChanges()) {
@@ -175,6 +211,7 @@ export function NotificationBell(props: {
       },
       (listenerErr) => {
         console.error("[FlowPM] invite notifications query failed", listenerErr);
+        setInviteError(firestoreListenerMessage(listenerErr));
         setInvites([]);
       },
     );
@@ -195,6 +232,7 @@ export function NotificationBell(props: {
     const unsub = onSnapshot(
       q,
       (snapshot) => {
+        setTasksError(null);
         const rows = mapAssignedTasks(snapshot, orgId);
         if (!first) {
           for (const ch of snapshot.docChanges()) {
@@ -216,7 +254,11 @@ export function NotificationBell(props: {
         }
         setTasks(rows);
       },
-      () => setTasks([]),
+      (listenerErr) => {
+        console.error("[FlowPM] assigned tasks notifications query failed", listenerErr);
+        setTasksError(firestoreListenerMessage(listenerErr));
+        setTasks([]);
+      },
     );
 
     return () => unsub();
@@ -229,18 +271,18 @@ export function NotificationBell(props: {
     }
 
     const db = getFirebaseDb();
-    const q = query(
-      collection(db, "organizations", orgId, "taskComments"),
-      orderBy("createdAt", "desc"),
-      limit(25),
-    );
+    const q = query(collection(db, "organizations", orgId, "taskComments"), limit(50));
     let first = true;
 
     const unsub = onSnapshot(
       q,
       (snapshot) => {
+        setCommentsError(null);
+        const sorted = [...snapshot.docs].sort(
+          (a, b) => createdAtMs(b.data().createdAt) - createdAtMs(a.data().createdAt),
+        );
         const rows: TaskCommentRow[] = [];
-        for (const d of snapshot.docs) {
+        for (const d of sorted) {
           const data = d.data() as Record<string, unknown>;
           const authorId = String(data.userId ?? "");
           if (authorId === userId) continue;
@@ -271,7 +313,11 @@ export function NotificationBell(props: {
         }
         setComments(rows);
       },
-      () => setComments([]),
+      (listenerErr) => {
+        console.error("[FlowPM] task comments notifications query failed", listenerErr);
+        setCommentsError(firestoreListenerMessage(listenerErr));
+        setComments([]);
+      },
     );
 
     return () => unsub();
@@ -320,6 +366,14 @@ export function NotificationBell(props: {
           <p className="text-sm font-semibold text-flowpm-dark">Notifications</p>
           <p className="text-xs text-flowpm-muted">Invites, your tasks, and team comments (live)</p>
         </div>
+
+        {inviteError || tasksError || commentsError ? (
+          <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+            {inviteError ? <p className="mb-1">Invites: {inviteError}</p> : null}
+            {tasksError ? <p className="mb-1">Assigned tasks: {tasksError}</p> : null}
+            {commentsError ? <p>Comments: {commentsError}</p> : null}
+          </div>
+        ) : null}
 
         <div className="max-h-[min(70vh,22rem)] overflow-y-auto">
           <SectionTitle>Workspace invites</SectionTitle>
