@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -56,19 +56,24 @@ function orgIdFromInviteDoc(d: QueryDocumentSnapshot): string | null {
   return d.ref.parent?.parent?.id ?? null;
 }
 
+function inviteRowFromDoc(d: QueryDocumentSnapshot): InviteNotificationRow | null {
+  const orgId = orgIdFromInviteDoc(d);
+  if (!orgId) return null;
+  const data = d.data() as Record<string, unknown>;
+  return {
+    token: d.id,
+    orgId,
+    organizationName: String(data.organizationName ?? "Workspace"),
+    role: String(data.role ?? "member"),
+    href: `/invite?org=${encodeURIComponent(orgId)}&t=${encodeURIComponent(d.id)}`,
+  };
+}
+
 function mapInviteDocs(snapshot: QuerySnapshot): InviteNotificationRow[] {
   const rows: InviteNotificationRow[] = [];
   for (const d of snapshot.docs) {
-    const orgId = orgIdFromInviteDoc(d);
-    if (!orgId) continue;
-    const data = d.data() as Record<string, unknown>;
-    rows.push({
-      token: d.id,
-      orgId,
-      organizationName: String(data.organizationName ?? "Workspace"),
-      role: String(data.role ?? "member"),
-      href: `/invite?org=${encodeURIComponent(orgId)}&t=${encodeURIComponent(d.id)}`,
-    });
+    const row = inviteRowFromDoc(d);
+    if (row) rows.push(row);
   }
   return rows;
 }
@@ -85,7 +90,7 @@ function firestoreListenerMessage(err: unknown, kind: "invites" | "tasks" | "com
     return "Permission denied — deploy latest Firestore rules for this project.";
   }
   if (e?.code === "failed-precondition") {
-    return "Missing Firestore index — run firebase deploy --only firestore:indexes.";
+    return "Missing Firestore index — run firebase deploy --only firestore:indexes against the same Firebase project as NEXT_PUBLIC_FIREBASE_PROJECT_ID.";
   }
   return e?.message ?? "Query failed";
 }
@@ -112,6 +117,7 @@ export function NotificationBell(props: {
   orgId: string;
 }) {
   const { userEmail, userId, orgId } = props;
+  const notifiedInvitePathRef = useRef(new Set<string>());
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [authHydrated, setAuthHydrated] = useState(false);
 
@@ -131,12 +137,24 @@ export function NotificationBell(props: {
     return authEmail ?? propOk;
   }, [authHydrated, authEmail, userEmail]);
 
-  const [invites, setInvites] = useState<InviteNotificationRow[]>([]);
+  const [orgInvites, setOrgInvites] = useState<InviteNotificationRow[]>([]);
+  const [cgInvites, setCgInvites] = useState<InviteNotificationRow[]>([]);
+  const [orgInviteErr, setOrgInviteErr] = useState<string | null>(null);
+  const [cgInviteErr, setCgInviteErr] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskAssignRow[]>([]);
   const [comments, setComments] = useState<TaskCommentRow[]>([]);
-  const [inviteError, setInviteError] = useState<string | null>(null);
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [commentsError, setCommentsError] = useState<string | null>(null);
+  const invites = useMemo(() => {
+    const m = new Map<string, InviteNotificationRow>();
+    for (const r of orgInvites) m.set(`${r.orgId}:${r.token}`, r);
+    for (const r of cgInvites) m.set(`${r.orgId}:${r.token}`, r);
+    return Array.from(m.values());
+  }, [orgInvites, cgInvites]);
+  const inviteError = useMemo(() => {
+    if (invites.length > 0) return null;
+    return orgInviteErr ?? cgInviteErr;
+  }, [invites.length, orgInviteErr, cgInviteErr]);
   const [open, setOpen] = useState(false);
   const [desktopPermission, setDesktopPermission] = useState<
     NotificationPermission | "unsupported"
@@ -147,8 +165,63 @@ export function NotificationBell(props: {
   );
 
   useEffect(() => {
-    if (!normalizedEmail || !normalizedEmail.includes("@")) {
-      setInvites([]);
+    if (!normalizedEmail?.includes("@")) {
+      setOrgInvites([]);
+      setOrgInviteErr(null);
+      return;
+    }
+    if (!orgId) {
+      setOrgInvites([]);
+      setOrgInviteErr(null);
+      return;
+    }
+
+    const db = getFirebaseDb();
+    const q = query(
+      collection(db, "organizations", orgId, "invites"),
+      where("email", "==", normalizedEmail),
+    );
+    let first = true;
+
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        setOrgInviteErr(null);
+        const rows = mapInviteDocs(snapshot);
+        if (!first) {
+          for (const ch of snapshot.docChanges()) {
+            if (ch.type === "added") {
+              const path = ch.doc.ref.path;
+              if (notifiedInvitePathRef.current.has(path)) continue;
+              notifiedInvitePathRef.current.add(path);
+              const row = inviteRowFromDoc(ch.doc);
+              if (!row) continue;
+              notifyDesktop(
+                "Workspace invite",
+                `You're invited to ${row.organizationName}.`,
+                `flowpm-invite-${row.orgId}-${ch.doc.id}`,
+              );
+            }
+          }
+        } else {
+          first = false;
+        }
+        setOrgInvites(rows);
+      },
+      (listenerErr) => {
+        console.error("[FlowPM] org invite notifications query failed", listenerErr);
+        setOrgInviteErr(firestoreListenerMessage(listenerErr, "invites"));
+        setOrgInvites([]);
+      },
+    );
+
+    return () => unsub();
+  }, [orgId, normalizedEmail]);
+
+  useEffect(() => {
+    if (!normalizedEmail?.includes("@")) {
+      setCgInvites([]);
+      setCgInviteErr(null);
       return;
     }
 
@@ -159,31 +232,32 @@ export function NotificationBell(props: {
     const unsub = onSnapshot(
       q,
       (snapshot) => {
-        setInviteError(null);
+        setCgInviteErr(null);
         const rows = mapInviteDocs(snapshot);
         if (!first) {
           for (const ch of snapshot.docChanges()) {
             if (ch.type === "added") {
-              const oid = orgIdFromInviteDoc(ch.doc);
-              if (!oid) continue;
-              const data = ch.doc.data() as Record<string, unknown>;
-              const orgName = String(data.organizationName ?? "Workspace");
+              const path = ch.doc.ref.path;
+              if (notifiedInvitePathRef.current.has(path)) continue;
+              notifiedInvitePathRef.current.add(path);
+              const row = inviteRowFromDoc(ch.doc);
+              if (!row) continue;
               notifyDesktop(
                 "Workspace invite",
-                `You're invited to ${orgName}.`,
-                `flowpm-invite-${oid}-${ch.doc.id}`,
+                `You're invited to ${row.organizationName}.`,
+                `flowpm-invite-${row.orgId}-${ch.doc.id}`,
               );
             }
           }
         } else {
           first = false;
         }
-        setInvites(rows);
+        setCgInvites(rows);
       },
       (listenerErr) => {
-        console.error("[FlowPM] invite notifications query failed", listenerErr);
-        setInviteError(firestoreListenerMessage(listenerErr, "invites"));
-        setInvites([]);
+        console.error("[FlowPM] collectionGroup invite notifications query failed", listenerErr);
+        setCgInviteErr(firestoreListenerMessage(listenerErr, "invites"));
+        setCgInvites([]);
       },
     );
 
