@@ -117,12 +117,16 @@ function notifyDesktop(title: string, body: string, tag: string) {
 }
 
 export function NotificationBell(props: {
+  /** Profile or auth email; invite docs match auth token email (lowercase). */
   userEmail: string;
   userId: string;
   orgId: string;
 }) {
   const { userEmail, userId, orgId } = props;
-  const normalizedEmail = useMemo(() => userEmail.trim().toLowerCase(), [userEmail]);
+  const normalizedEmail = useMemo(() => {
+    const e = userEmail.trim().toLowerCase();
+    return e.includes("@") ? e : "";
+  }, [userEmail]);
 
   const [invites, setInvites] = useState<InviteNotificationRow[]>([]);
   const [tasks, setTasks] = useState<TaskAssignRow[]>([]);
@@ -169,7 +173,10 @@ export function NotificationBell(props: {
         }
         setInvites(rows);
       },
-      () => setInvites([]),
+      (listenerErr) => {
+        console.error("[FlowPM] invite notifications query failed", listenerErr);
+        setInvites([]);
+      },
     );
 
     return () => unsub();

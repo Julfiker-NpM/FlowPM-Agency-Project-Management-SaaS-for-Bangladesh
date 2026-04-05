@@ -93,12 +93,18 @@ function InvitePageInner() {
       router.replace("/dashboard");
       router.refresh();
     } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
       const code = e instanceof Error ? e.message : "";
       if (code === "EMAIL_MISMATCH") {
         setError("Sign in with the email this invite was sent to, then try again.");
       } else if (code === "INVITE_GONE") {
         setError("This invite is no longer valid. Ask for a new invite.");
+      } else if (err.code === "permission-denied") {
+        setError(
+          "Permission denied (Firestore rules). Deploy the latest rules: firebase deploy --only firestore:rules — or ask your admin.",
+        );
       } else {
+        console.error("Invite accept failed", e);
         setError("Could not join workspace. Try again.");
       }
     } finally {
