@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { collection, doc, getDocs, serverTimestamp, setDoc } from "firebase/firestore";
-import { getFirebaseDb } from "@/lib/firebase/client";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import { PageMotion } from "@/components/flowpm/page-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -54,6 +54,7 @@ export function TeamClient(props: {
   const [error, setError] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [invites, setInvites] = useState<PendingInviteRow[]>([]);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   const loadInvites = useCallback(async () => {
     if (!canInvite || !orgId) return;
@@ -79,6 +80,7 @@ export function TeamClient(props: {
     e.preventDefault();
     setError(null);
     setInviteLink(null);
+    setEmailStatus(null);
     const addr = email.trim().toLowerCase();
     if (addr.length < 5 || !addr.includes("@")) {
       setError("Enter a valid email address.");
@@ -99,6 +101,36 @@ export function TeamClient(props: {
       setInviteLink(link);
       setEmail("");
       await loadInvites();
+
+      const authUser = getFirebaseAuth().currentUser;
+      const idToken = authUser ? await authUser.getIdToken() : null;
+      if (idToken) {
+        try {
+          const res = await fetch("/api/invite-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ orgId, token, inviteeEmail: addr }),
+          });
+          const data = (await res.json().catch(() => ({}))) as {
+            sent?: boolean;
+            reason?: string;
+            message?: string;
+            error?: string;
+          };
+          if (res.ok && data.sent) {
+            setEmailStatus("Invitation email sent.");
+          } else if (data.reason === "missing_resend" || data.reason === "missing_admin") {
+            setEmailStatus(data.message ?? "Invite saved. Configure server env vars to send email automatically.");
+          } else if (!res.ok) {
+            setEmailStatus(data.error ?? "Invite saved; automatic email failed. Use Copy link.");
+          }
+        } catch {
+          setEmailStatus("Invite saved; could not reach email service. Use Copy link.");
+        }
+      }
     } catch {
       setError("Could not create invite. Check permissions and try again.");
     } finally {
@@ -129,6 +161,7 @@ export function TeamClient(props: {
             setModalOpen(true);
             setError(null);
             setInviteLink(null);
+            setEmailStatus(null);
           }}
         >
           Invite member
@@ -191,6 +224,17 @@ export function TeamClient(props: {
                   <div className="rounded-md border border-flowpm-border bg-flowpm-canvas p-3 text-xs">
                     <p className="mb-2 font-medium text-flowpm-body">Invite link (copy and send)</p>
                     <p className="break-all text-flowpm-muted">{inviteLink}</p>
+                    {emailStatus ? (
+                      <p
+                        className={
+                          emailStatus.startsWith("Invitation email sent")
+                            ? "mt-2 text-flowpm-success"
+                            : "mt-2 text-flowpm-muted"
+                        }
+                      >
+                        {emailStatus}
+                      </p>
+                    ) : null}
                     <Button type="button" variant="outline" className="mt-2 h-9 w-full" onClick={copyLink}>
                       Copy link
                     </Button>

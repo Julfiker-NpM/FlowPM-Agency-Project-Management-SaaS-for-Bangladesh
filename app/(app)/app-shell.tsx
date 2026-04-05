@@ -79,6 +79,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           user={{ name: profile.name, email }}
           organizationName={org.name}
           onSignOut={handleSignOut}
+          userId={firebaseUser.uid}
+          orgId={orgId}
         />
         <div className="flex-1 overflow-auto">
           <div className="mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8">{children}</div>

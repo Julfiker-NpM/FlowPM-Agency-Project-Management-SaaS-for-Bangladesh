@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/flowpm/theme-toggle";
+import { NotificationBell } from "@/components/flowpm/notification-panel";
 
 function initials(name: string | null, email: string) {
   const n = name?.trim();
@@ -30,8 +31,10 @@ export function TopBar(props: {
   user: TopBarUser;
   organizationName: string;
   onSignOut: () => void;
+  userId: string;
+  orgId: string;
 }) {
-  const { user, organizationName, onSignOut } = props;
+  const { user, organizationName, onSignOut, userId, orgId } = props;
   const pathname = usePathname();
   const title = titleForPath(pathname);
   const displayName = user.name?.trim() || user.email.split("@")[0] || "Account";
@@ -42,6 +45,7 @@ export function TopBar(props: {
         {title}
       </h1>
       <div className="flex items-center gap-2">
+        <NotificationBell userEmail={user.email} userId={userId} orgId={orgId} />
         <ThemeToggle className="hidden sm:flex" />
         {pathname === "/projects" && (
           <Link
