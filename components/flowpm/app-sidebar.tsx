@@ -7,6 +7,7 @@ import { mainNav } from "@/lib/nav";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUiStore } from "@/lib/store/ui-store";
 import { Menu } from "lucide-react";
+import { ThemeToggle } from "@/components/flowpm/theme-toggle";
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -22,7 +23,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
               active
-                ? "bg-[#EEEDFE] text-[#534AB7]"
+                ? "bg-flowpm-primary-light text-flowpm-primary"
                 : "text-flowpm-muted hover:bg-flowpm-canvas hover:text-flowpm-body",
             )}
           >
@@ -59,6 +60,9 @@ export function AppSidebar({ userDisplayName, userEmail, organizationName, onSig
           <NavLinks />
         </div>
         <div className="border-t border-flowpm-border p-3">
+          <div className="mb-3 flex justify-center">
+            <ThemeToggle />
+          </div>
           <div className="mb-2 rounded-xl bg-flowpm-canvas/80 px-3 py-2">
             <p className="truncate text-sm font-medium text-flowpm-body">{userDisplayName}</p>
             <p className="truncate text-xs text-flowpm-muted">{userEmail}</p>
@@ -93,6 +97,9 @@ export function AppSidebar({ userDisplayName, userEmail, organizationName, onSig
               <NavLinks onNavigate={() => setMobileNavOpen(false)} />
             </div>
             <div className="border-t border-flowpm-border p-3">
+              <div className="mb-3 flex justify-center">
+                <ThemeToggle />
+              </div>
               <div className="mb-2 rounded-xl bg-flowpm-canvas/80 px-3 py-2">
                 <p className="truncate text-sm font-medium text-flowpm-body">{userDisplayName}</p>
                 <p className="truncate text-xs text-flowpm-muted">{userEmail}</p>

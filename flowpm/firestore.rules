@@ -20,6 +20,11 @@ service cloud.firestore {
       return isOrgMember(orgId) && orgRole(orgId) in ['owner', 'admin'];
     }
 
+    function isOrgOwnerUser(orgId) {
+      return signedIn() &&
+        get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid;
+    }
+
     match /users/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow create: if signedIn() && request.auth.uid == userId;
@@ -35,9 +40,37 @@ service cloud.firestore {
 
       match /members/{memberId} {
         allow read: if isOrgMember(orgId);
-        allow create: if signedIn() && request.auth.uid == memberId;
+        allow create: if signedIn() && request.auth.uid == memberId && (
+          request.resource.data.role in ['admin', 'member', 'viewer'] ||
+          (request.resource.data.role == 'owner' && isOrgOwnerUser(orgId))
+        );
         allow update: if isOrgAdmin(orgId);
         allow delete: if isOrgAdmin(orgId);
+      }
+
+      match /invites/{inviteId} {
+        allow read: if signedIn() && (
+          isOrgMember(orgId) ||
+          (
+            resource.data.email is string &&
+            request.auth.token.email != null &&
+            resource.data.email.lower() == request.auth.token.email.lower()
+          )
+        );
+        allow create: if isOrgAdmin(orgId)
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 3
+          && request.resource.data.role in ['admin', 'member', 'viewer']
+          && request.resource.data.invitedByUid == request.auth.uid
+          && request.resource.data.organizationName is string;
+        allow delete: if isOrgAdmin(orgId) ||
+          (
+            signedIn() &&
+            resource.data.email is string &&
+            request.auth.token.email != null &&
+            resource.data.email.lower() == request.auth.token.email.lower()
+          );
+        allow update: if false;
       }
 
       match /clients/{clientId} {

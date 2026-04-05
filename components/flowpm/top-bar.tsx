@@ -8,6 +8,7 @@ import { Plus, ChevronDown, LogOut } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "@/components/flowpm/theme-toggle";
 
 function initials(name: string | null, email: string) {
   const n = name?.trim();
@@ -41,6 +42,7 @@ export function TopBar(props: {
         {title}
       </h1>
       <div className="flex items-center gap-2">
+        <ThemeToggle className="hidden sm:flex" />
         {pathname === "/projects" && (
           <Link
             href="/projects/new"
@@ -61,7 +63,7 @@ export function TopBar(props: {
             )}
           >
             <Avatar size="sm" className="size-7">
-              <AvatarFallback className="bg-[#EEEDFE] text-[10px] font-medium text-[#534AB7]">
+              <AvatarFallback className="bg-flowpm-primary-light text-[10px] font-medium text-flowpm-primary">
                 {initials(user.name, user.email)}
               </AvatarFallback>
             </Avatar>
@@ -84,7 +86,7 @@ export function TopBar(props: {
               <button
                 type="button"
                 onClick={onSignOut}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-flowpm-danger transition-colors hover:bg-red-50"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium text-flowpm-danger transition-colors hover:bg-red-50 dark:hover:bg-red-950/40"
               >
                 <LogOut className="size-4 shrink-0" aria-hidden />
                 Sign out
