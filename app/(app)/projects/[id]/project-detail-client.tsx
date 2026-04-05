@@ -363,6 +363,7 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
 
   return (
     <PageMotion>
+      <div className="w-full min-w-0 max-w-full">
       {taskError && !taskSheetOpen ? (
         <p className="mb-3 text-xs text-flowpm-danger">{taskError}</p>
       ) : null}
@@ -379,34 +380,53 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
         </div>
       </div>
 
-      <Tabs defaultValue="board" className="w-full">
-        <TabsList className="mb-6 flex h-auto w-full max-w-2xl flex-wrap gap-1 bg-flowpm-surface p-1">
-          <TabsTrigger value="board" className="flex-1 min-w-[4.5rem]">
+      <Tabs defaultValue="board" className="w-full min-w-0">
+        <TabsList className="mb-6 flex h-auto w-full min-w-0 flex-wrap gap-1 bg-flowpm-surface p-1 sm:max-w-none">
+          <TabsTrigger value="board" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
             Board
           </TabsTrigger>
-          <TabsTrigger value="list" className="flex-1 min-w-[4.5rem]">
+          <TabsTrigger value="list" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
             List
           </TabsTrigger>
-          <TabsTrigger value="timeline" className="flex-1 min-w-[4.5rem]">
+          <TabsTrigger value="timeline" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
             Timeline
           </TabsTrigger>
-          <TabsTrigger value="files" className="flex-1 min-w-[4.5rem]">
+          <TabsTrigger value="files" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
             Files
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex-1 min-w-[4.5rem]">
+          <TabsTrigger value="settings" className="min-h-9 min-w-[5.5rem] flex-1 basis-full px-2 sm:basis-0">
             Settings
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="board" className="mt-0">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <TabsContent value="board" className="mt-0 w-full min-w-0">
+          <div
+            className={cn(
+              "-mx-4 w-[calc(100%+2rem)] overflow-x-auto overflow-y-visible pb-2 [-webkit-overflow-scrolling:touch]",
+              "px-4 sm:mx-0 sm:w-full sm:px-0",
+              "xl:overflow-x-visible xl:pb-0",
+            )}
+          >
+            <div
+              className={cn(
+                "flex w-full min-w-0 flex-col gap-4",
+                "sm:flex sm:w-max sm:max-w-none sm:flex-row sm:flex-nowrap sm:gap-4",
+                "xl:w-full xl:grid xl:max-w-none xl:grid-cols-4 xl:flex-none",
+              )}
+            >
             {columns.map((col) => (
               <div
                 key={col.id}
-                className="rounded-xl border border-flowpm-border bg-flowpm-surface p-3 shadow-card"
+                className={cn(
+                  "flex min-h-[140px] min-w-0 flex-col rounded-xl border border-flowpm-border bg-flowpm-surface p-3 shadow-card",
+                  "w-full sm:w-[min(280px,calc(100vw-4.5rem))] sm:max-w-[min(280px,calc(100vw-4.5rem))] sm:shrink-0",
+                  "xl:w-full xl:max-w-none",
+                )}
               >
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <h3 className="font-heading text-sm font-semibold text-flowpm-dark">{col.title}</h3>
+                <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
+                  <h3 className="min-w-0 truncate font-heading text-sm font-semibold text-flowpm-dark">
+                    {col.title}
+                  </h3>
                   <Badge variant="secondary" className="text-[10px]">
                     {col.tasks.length}
                   </Badge>
@@ -420,9 +440,9 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                         key={t.id}
                         type="button"
                         onClick={() => openTask(t.id)}
-                        className="rounded-lg border border-flowpm-border bg-flowpm-canvas/40 p-3 text-left text-sm text-flowpm-body transition-transform duration-100 hover:border-flowpm-primary/40 hover:bg-flowpm-canvas active:scale-[0.99]"
+                        className="min-w-0 rounded-lg border border-flowpm-border bg-flowpm-canvas/40 p-3 text-left text-sm text-flowpm-body transition-transform duration-100 hover:border-flowpm-primary/40 hover:bg-flowpm-canvas active:scale-[0.99]"
                       >
-                        <span className="font-medium">{t.title}</span>
+                        <span className="block break-words font-medium">{t.title}</span>
                         {t.dueDate ? (
                           <p className="mt-1 text-[10px] text-flowpm-muted">
                             Due {t.dueDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -443,10 +463,11 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="list" className="mt-0">
+        <TabsContent value="list" className="mt-0 w-full min-w-0">
           <Card className="border-flowpm-border overflow-hidden">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -503,7 +524,7 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
           </Card>
         </TabsContent>
 
-        <TabsContent value="timeline" className="mt-0">
+        <TabsContent value="timeline" className="mt-0 w-full min-w-0">
           <Card className="border-flowpm-border">
             <CardContent className="space-y-3 p-6">
               {timelineTasks.length === 0 ? (
@@ -533,7 +554,7 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
           </Card>
         </TabsContent>
 
-        <TabsContent value="files" className="mt-0">
+        <TabsContent value="files" className="mt-0 w-full min-w-0">
           <Card className="border-flowpm-border">
             <CardContent className="p-6 text-sm text-flowpm-muted">
               File uploads are not enabled in this build. Use task descriptions for notes and links.
@@ -541,7 +562,7 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings" className="mt-0">
+        <TabsContent value="settings" className="mt-0 w-full min-w-0">
           <Card className="border-flowpm-border">
             <CardContent className="p-6">
               <form onSubmit={(e) => void saveProjectSettings(e)} className="mx-auto max-w-md space-y-4">
@@ -750,6 +771,7 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
           </SheetFooter>
         </SheetContent>
       </Sheet>
+      </div>
     </PageMotion>
   );
 }
