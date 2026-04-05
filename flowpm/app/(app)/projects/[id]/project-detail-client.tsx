@@ -381,20 +381,35 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
       </div>
 
       <Tabs defaultValue="board" className="w-full min-w-0">
-        <TabsList className="mb-6 flex h-auto w-full min-w-0 flex-wrap gap-1 bg-flowpm-surface p-1 sm:max-w-none">
-          <TabsTrigger value="board" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
+        <TabsList className="mb-6 flex h-auto w-full min-w-0 flex-wrap gap-1 bg-flowpm-surface p-1">
+          <TabsTrigger
+            value="board"
+            className="min-h-9 min-w-0 basis-[calc(50%-0.125rem)] px-2 sm:flex-1 sm:basis-0"
+          >
             Board
           </TabsTrigger>
-          <TabsTrigger value="list" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
+          <TabsTrigger
+            value="list"
+            className="min-h-9 min-w-0 basis-[calc(50%-0.125rem)] px-2 sm:flex-1 sm:basis-0"
+          >
             List
           </TabsTrigger>
-          <TabsTrigger value="timeline" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
+          <TabsTrigger
+            value="timeline"
+            className="min-h-9 min-w-0 basis-[calc(50%-0.125rem)] px-2 sm:flex-1 sm:basis-0"
+          >
             Timeline
           </TabsTrigger>
-          <TabsTrigger value="files" className="min-h-9 flex-1 basis-[30%] min-w-[4.75rem] px-2 sm:basis-0">
+          <TabsTrigger
+            value="files"
+            className="min-h-9 min-w-0 basis-[calc(50%-0.125rem)] px-2 sm:flex-1 sm:basis-0"
+          >
             Files
           </TabsTrigger>
-          <TabsTrigger value="settings" className="min-h-9 min-w-[5.5rem] flex-1 basis-full px-2 sm:basis-0">
+          <TabsTrigger
+            value="settings"
+            className="min-h-9 min-w-0 basis-full px-2 sm:flex-1 sm:basis-0"
+          >
             Settings
           </TabsTrigger>
         </TabsList>
@@ -402,25 +417,24 @@ export function ProjectDetailClient(props: { orgId: string; projectId: string })
         <TabsContent value="board" className="mt-0 w-full min-w-0">
           <div
             className={cn(
-              "-mx-4 w-[calc(100%+2rem)] overflow-x-auto overflow-y-visible pb-2 [-webkit-overflow-scrolling:touch]",
-              "px-4 sm:mx-0 sm:w-full sm:px-0",
+              "w-full min-w-0 overflow-x-auto overflow-y-visible pb-2 [-webkit-overflow-scrolling:touch]",
               "xl:overflow-x-visible xl:pb-0",
             )}
           >
             <div
               className={cn(
                 "flex w-full min-w-0 flex-col gap-4",
-                "sm:flex sm:w-max sm:max-w-none sm:flex-row sm:flex-nowrap sm:gap-4",
-                "xl:w-full xl:grid xl:max-w-none xl:grid-cols-4 xl:flex-none",
+                "md:flex-row md:flex-nowrap md:w-max md:max-w-none md:gap-4",
+                "xl:w-full xl:max-w-none",
               )}
             >
             {columns.map((col) => (
               <div
                 key={col.id}
                 className={cn(
-                  "flex min-h-[140px] min-w-0 flex-col rounded-xl border border-flowpm-border bg-flowpm-surface p-3 shadow-card",
-                  "w-full sm:w-[min(280px,calc(100vw-4.5rem))] sm:max-w-[min(280px,calc(100vw-4.5rem))] sm:shrink-0",
-                  "xl:w-full xl:max-w-none",
+                  "flex min-h-[140px] flex-col rounded-xl border border-flowpm-border bg-flowpm-surface p-3 shadow-card",
+                  "w-full md:w-[280px] md:min-w-[280px] md:max-w-[280px] md:shrink-0",
+                  "xl:min-w-0 xl:w-auto xl:max-w-none xl:flex-1 xl:basis-0",
                 )}
               >
                 <div className="mb-3 flex min-w-0 items-center justify-between gap-2">
