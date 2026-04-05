@@ -23,6 +23,8 @@ export type OrgSummary = {
   name: string;
   slug: string;
   plan: string;
+  /** Firebase Auth uid of the workspace creator (cannot be removed from members). */
+  ownerId: string | null;
 };
 
 type FlowAuthState = {
@@ -75,6 +77,7 @@ async function loadProfileAndOrg(uid: string): Promise<{
     name: (o.name as string) ?? "Workspace",
     slug: (o.slug as string) ?? "",
     plan: (o.plan as string) ?? "free",
+    ownerId: typeof o.ownerId === "string" ? o.ownerId : null,
   };
   const memberRole = memSnap.exists() ? String((memSnap.data() as Record<string, unknown>).role ?? "") : null;
   return { profile, org, orgId, memberRole: memberRole || null };

@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { collection, doc, getDocs, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import {
   FREE_PLAN_MAX_MEMBERS,
@@ -43,16 +51,31 @@ function randomInviteToken(): string {
   return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const MANAGEABLE_ROLES = ["admin", "member", "viewer"] as const;
+type ManageableRole = (typeof MANAGEABLE_ROLES)[number];
+
 export function TeamClient(props: {
   members: TeamMemberRow[];
   orgId: string;
   organizationName: string;
   orgPlan: string | null | undefined;
+  workspaceOwnerId: string | null;
   currentUserId: string;
   canInvite: boolean;
   reloadKey: number;
+  onMembersChanged: () => void;
 }) {
-  const { members, orgId, organizationName, orgPlan, currentUserId, canInvite, reloadKey } = props;
+  const {
+    members,
+    orgId,
+    organizationName,
+    orgPlan,
+    workspaceOwnerId,
+    currentUserId,
+    canInvite,
+    reloadKey,
+    onMembersChanged,
+  } = props;
   const [modalOpen, setModalOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "member" | "viewer">("member");
@@ -61,6 +84,9 @@ export function TeamClient(props: {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [invites, setInvites] = useState<PendingInviteRow[]>([]);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [teamActionError, setTeamActionError] = useState<string | null>(null);
+  const [memberBusyId, setMemberBusyId] = useState<string | null>(null);
+  const [inviteRevokeBusyId, setInviteRevokeBusyId] = useState<string | null>(null);
 
   const loadInvites = useCallback(async () => {
     if (!canInvite || !orgId) return;
@@ -164,11 +190,70 @@ export function TeamClient(props: {
     }
   }
 
+  function isProtectedOwnerRow(memberId: string) {
+    if (workspaceOwnerId && memberId === workspaceOwnerId) return true;
+    const row = members.find((x) => x.id === memberId);
+    return String(row?.role ?? "").toLowerCase() === "owner";
+  }
+
+  async function revokeInvite(inviteDocId: string) {
+    if (!canInvite) return;
+    setInviteRevokeBusyId(inviteDocId);
+    setTeamActionError(null);
+    try {
+      const db = getFirebaseDb();
+      await deleteDoc(doc(db, "organizations", orgId, "invites", inviteDocId));
+      await loadInvites();
+    } catch {
+      setTeamActionError("Could not revoke invite.");
+    } finally {
+      setInviteRevokeBusyId(null);
+    }
+  }
+
+  async function saveMemberRole(memberId: string, nextRole: ManageableRole) {
+    if (!canInvite || isProtectedOwnerRow(memberId)) return;
+    setMemberBusyId(memberId);
+    setTeamActionError(null);
+    try {
+      const db = getFirebaseDb();
+      await updateDoc(doc(db, "organizations", orgId, "members", memberId), { role: nextRole });
+      onMembersChanged();
+    } catch {
+      setTeamActionError("Could not update role. Check permissions or try again.");
+    } finally {
+      setMemberBusyId(null);
+    }
+  }
+
+  async function removeMemberFromWorkspace(memberId: string) {
+    if (!canInvite || isProtectedOwnerRow(memberId)) return;
+    if (
+      !window.confirm(
+        "Remove this person from the workspace? They will lose access until someone invites them again.",
+      )
+    ) {
+      return;
+    }
+    setMemberBusyId(memberId);
+    setTeamActionError(null);
+    try {
+      const db = getFirebaseDb();
+      await deleteDoc(doc(db, "organizations", orgId, "members", memberId));
+      onMembersChanged();
+    } catch {
+      setTeamActionError("Could not remove member.");
+    } finally {
+      setMemberBusyId(null);
+    }
+  }
+
   return (
     <PageMotion>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <p className="text-sm text-flowpm-muted">
-          Invite members and assign roles (Admin / Member / Viewer). Share the link with their email only.
+          Invite members and assign roles (Admin / Member / Viewer). Owners and admins can change roles or remove
+          members (except the workspace owner).
         </p>
         <Button
           type="button"
@@ -186,8 +271,10 @@ export function TeamClient(props: {
       </div>
 
       {!canInvite ? (
-        <p className="mb-4 text-xs text-flowpm-muted">Only owners and admins can send invites.</p>
+        <p className="mb-4 text-xs text-flowpm-muted">Only owners and admins can send invites or manage roles.</p>
       ) : null}
+
+      {teamActionError ? <p className="mb-4 text-sm text-flowpm-danger">{teamActionError}</p> : null}
 
       {modalOpen ? (
         <div
@@ -286,15 +373,27 @@ export function TeamClient(props: {
                     <p className="font-medium text-flowpm-body">{inv.email}</p>
                     <p className="text-xs capitalize text-flowpm-muted">{inv.role}</p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => void navigator.clipboard.writeText(link)}
-                  >
-                    Copy link
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => void navigator.clipboard.writeText(link)}
+                    >
+                      Copy link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-flowpm-danger hover:text-flowpm-danger"
+                      disabled={inviteRevokeBusyId === inv.id}
+                      onClick={() => void revokeInvite(inv.id)}
+                    >
+                      {inviteRevokeBusyId === inv.id ? "Revoking…" : "Revoke"}
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -310,27 +409,79 @@ export function TeamClient(props: {
           {members.length === 0 ? (
             <p className="text-sm text-flowpm-muted">No members yet.</p>
           ) : (
-            members.map((m) => (
-              <div
-                key={m.id}
-                className="flex flex-wrap items-center justify-between gap-3 border-b border-flowpm-border pb-4 last:border-0 last:pb-0"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback className="bg-flowpm-primary-light text-[10px] font-medium text-flowpm-primary">
-                      {initials(m.name, m.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-flowpm-body">{m.name || m.email}</p>
-                    <p className="text-xs text-flowpm-muted">{m.email}</p>
+            members.map((m) => {
+              const ownerRow = isProtectedOwnerRow(m.id);
+              const busy = memberBusyId === m.id;
+              const r = String(m.role || "member").toLowerCase();
+              const manageable = MANAGEABLE_ROLES.includes(r as ManageableRole);
+              const selectRole: ManageableRole = manageable ? (r as ManageableRole) : "member";
+
+              return (
+                <div
+                  key={m.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-flowpm-border pb-4 last:border-0 last:pb-0"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback className="bg-flowpm-primary-light text-[10px] font-medium text-flowpm-primary">
+                        {initials(m.name, m.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-medium text-flowpm-body">
+                        {m.name || m.email}
+                        {m.id === currentUserId ? (
+                          <span className="ml-1 text-xs font-normal text-flowpm-muted">(you)</span>
+                        ) : null}
+                      </p>
+                      <p className="truncate text-xs text-flowpm-muted">{m.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ownerRow ? (
+                      <Badge variant="secondary" className="bg-flowpm-primary-light capitalize text-flowpm-primary">
+                        Owner
+                      </Badge>
+                    ) : canInvite ? (
+                      <>
+                        <select
+                          aria-label={`Role for ${m.email}`}
+                          className="h-9 min-w-[7.5rem] rounded-md border border-flowpm-border bg-flowpm-surface px-2 text-sm text-flowpm-body disabled:opacity-50"
+                          value={selectRole}
+                          disabled={busy}
+                          onChange={(ev) =>
+                            void saveMemberRole(m.id, ev.target.value as ManageableRole)
+                          }
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="member">Member</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-flowpm-danger hover:text-flowpm-danger"
+                          disabled={busy || m.id === currentUserId}
+                          title={
+                            m.id === currentUserId
+                              ? "Ask another admin to remove you, or transfer ownership first."
+                              : undefined
+                          }
+                          onClick={() => void removeMemberFromWorkspace(m.id)}
+                        >
+                          {busy ? "…" : "Remove"}
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge variant="secondary" className="bg-flowpm-primary-light capitalize text-flowpm-primary">
+                        {m.role}
+                      </Badge>
+                    )}
                   </div>
                 </div>
-                <Badge variant="secondary" className="bg-flowpm-primary-light text-flowpm-primary capitalize">
-                  {m.role}
-                </Badge>
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>

@@ -61,9 +61,11 @@ export default function TeamPage() {
       orgId={orgId}
       organizationName={org.name}
       orgPlan={org.plan}
+      workspaceOwnerId={org.ownerId}
       currentUserId={uid}
       canInvite={canInvite}
       reloadKey={reloadKey}
+      onMembersChanged={() => setReloadKey((k) => k + 1)}
     />
   );
 }

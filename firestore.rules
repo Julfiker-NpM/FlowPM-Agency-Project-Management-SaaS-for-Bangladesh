@@ -20,6 +20,10 @@ service cloud.firestore {
       return isOrgMember(orgId) && orgRole(orgId) in ['owner', 'admin'];
     }
 
+    function orgOwnerUid(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId;
+    }
+
     // Viewer: read workspace data only. Member / admin / owner can change projects, tasks, time, etc.
     function canMutateOrgContent(orgId) {
       return isOrgMember(orgId) && orgRole(orgId) in ['owner', 'admin', 'member'];
@@ -76,8 +80,12 @@ service cloud.firestore {
           request.resource.data.role in ['admin', 'member', 'viewer'] ||
           (request.resource.data.role == 'owner' && isOrgOwnerUser(orgId))
         );
-        allow update: if isOrgAdmin(orgId);
-        allow delete: if isOrgAdmin(orgId);
+        // Admins/owners may edit roles, but cannot assign "owner" except on existing owner doc,
+        // cannot demote an owner row, and cannot delete the workspace owner member doc.
+        allow update: if isOrgAdmin(orgId)
+          && (request.resource.data.role != 'owner' || resource.data.role == 'owner')
+          && (resource.data.role != 'owner' || request.resource.data.role == 'owner');
+        allow delete: if isOrgAdmin(orgId) && memberId != orgOwnerUid(orgId);
       }
 
       match /invites/{inviteId} {
