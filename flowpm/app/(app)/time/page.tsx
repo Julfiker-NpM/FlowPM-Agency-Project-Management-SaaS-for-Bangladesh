@@ -113,7 +113,7 @@ export default function TimePage() {
             <CardTitle className="font-heading text-lg">Time tracking</CardTitle>
             <p className="text-sm text-flowpm-muted">
               Time tracking is included on <strong className="text-flowpm-body">Pro</strong> and{" "}
-              <strong className="text-flowpm-body">Agency</strong>. Starter includes tasks only.
+              <strong className="text-flowpm-body">Ultra</strong>. Starter includes tasks only.
             </p>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">

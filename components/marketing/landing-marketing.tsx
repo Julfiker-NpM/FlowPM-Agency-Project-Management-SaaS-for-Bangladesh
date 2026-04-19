@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { PRICING_TIERS } from "@/lib/flowpm/plan-limits";
+
+const TIER_BLURBS: Record<(typeof PRICING_TIERS)[number]["id"], string> = {
+  starter: "Perfect for freelancers and very small teams getting started.",
+  pro: "For teams that need time tracking, invoicing, and client portal access.",
+  agency: "For growing agencies that need power, unlimited seats, and advanced tools.",
+};
 
 export function LandingMarketing() {
   const [navOpen, setNavOpen] = useState(false);
@@ -252,56 +259,25 @@ export function LandingMarketing() {
         <h2 className="section-title">Simple, local pricing</h2>
         <p className="section-sub">Priced for Bangladeshi teams — not US enterprise budgets.</p>
         <div className="pricing-grid">
-          <div className="plan">
-            <p className="plan-name">Starter</p>
-            <p className="plan-price">
-              ৳0 <span>/ month</span>
-            </p>
-            <p className="plan-desc">Perfect for freelancers and very small teams getting started.</p>
-            <ul className="plan-feats">
-              <li>3 team members</li>
-              <li>5 active projects</li>
-              <li>Basic task board</li>
-              <li>Client portal</li>
-            </ul>
-            <Link href="/signup" className="plan-btn">
-              Get started free
-            </Link>
-          </div>
-          <div className="plan featured">
-            <span className="plan-badge">Most popular</span>
-            <p className="plan-name">Agency</p>
-            <p className="plan-price">
-              ৳2,499 <span>/ month</span>
-            </p>
-            <p className="plan-desc">For growing agencies that need power, structure, and speed.</p>
-            <ul className="plan-feats">
-              <li>Up to 25 members</li>
-              <li>Unlimited projects</li>
-              <li>BDT invoicing</li>
-              <li>Time tracking</li>
-              <li>Workload view</li>
-              <li>Priority support</li>
-            </ul>
-            <Link href="/signup" className="plan-btn">
-              Start 14-day trial
-            </Link>
-          </div>
-          <div className="plan">
-            <p className="plan-name">Enterprise</p>
-            <p className="plan-price">Custom</p>
-            <p className="plan-desc">White-label options and dedicated support for large operations.</p>
-            <ul className="plan-feats">
-              <li>Unlimited members</li>
-              <li>White-label branding</li>
-              <li>Custom integrations</li>
-              <li>Dedicated manager</li>
-              <li>SLA guarantee</li>
-            </ul>
-            <a href="mailto:hello@flowpm.app" className="plan-btn">
-              Contact sales
-            </a>
-          </div>
+          {PRICING_TIERS.map((tier) => (
+            <div key={tier.id} className={cn("plan", tier.id === "pro" && "featured")}>
+              {tier.id === "pro" ? <span className="plan-badge">Most popular</span> : null}
+              <p className="plan-name">{tier.name}</p>
+              <p className="plan-price">
+                {tier.priceLine}{" "}
+                <span>{tier.priceSub}</span>
+              </p>
+              <p className="plan-desc">{TIER_BLURBS[tier.id]}</p>
+              <ul className="plan-feats">
+                {tier.features.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+              <Link href="/signup" className="plan-btn">
+                {tier.id === "starter" ? "Get started free" : tier.id === "pro" ? "Start 14-day trial" : "Go Ultra"}
+              </Link>
+            </div>
+          ))}
         </div>
       </section>
 

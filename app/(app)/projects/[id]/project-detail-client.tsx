@@ -903,7 +903,7 @@ export function ProjectDetailClient(props: {
                   ) : (
                     <p className="mt-2 text-xs text-flowpm-muted">
                       Client portal links are on <strong className="text-flowpm-body">Pro</strong> and{" "}
-                      <strong className="text-flowpm-body">Agency</strong>.{" "}
+                      <strong className="text-flowpm-body">Ultra</strong>.{" "}
                       <Link href="/settings" className="font-medium text-flowpm-primary hover:underline">
                         Upgrade in Settings
                       </Link>

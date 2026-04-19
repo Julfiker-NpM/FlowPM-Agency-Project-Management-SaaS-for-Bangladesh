@@ -175,9 +175,9 @@ export function SubscriptionPanel(props: {
         </CardContent>
       </Card>
 
-      <div>
-        <h2 className="font-heading text-xl font-semibold tracking-tight text-flowpm-dark">Plans</h2>
-        <p className="mt-1 text-sm text-flowpm-muted">Choose the tier that fits your team. Upgrade anytime.</p>
+      <div className="rounded-2xl border border-white/10 bg-[#0d0d0d] p-6 dark:border-white/10">
+        <h2 className="font-heading text-xl font-semibold tracking-tight text-[#e8e4dc]">Plans</h2>
+        <p className="mt-1 text-sm text-[#a8a8b8]">Choose the tier that fits your team. Prices in BDT (৳). Upgrade anytime.</p>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           {PRICING_TIERS.map((tier) => {
@@ -189,13 +189,23 @@ export function SubscriptionPanel(props: {
             let cta: ReactNode = null;
             if (isCurrent) {
               cta = (
-                <Button type="button" variant="outline" className="mt-4 h-9 w-full" disabled>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4 h-10 w-full rounded-lg border-white/20 bg-transparent text-[#e8e4dc] hover:bg-white/5"
+                  disabled
+                >
                   Current plan
                 </Button>
               );
             } else if (tier.id === "starter") {
               cta = (
-                <Button type="button" variant="ghost" className="mt-4 h-9 w-full text-flowpm-muted" disabled>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="mt-4 h-10 w-full text-[#a8a8b8] hover:bg-white/5 hover:text-[#e8e4dc]"
+                  disabled
+                >
                   Downgrade via support
                 </Button>
               );
@@ -208,19 +218,27 @@ export function SubscriptionPanel(props: {
                   rel="noopener noreferrer"
                   className={cn(
                     buttonVariants({ variant: "default" }),
-                    "mt-4 inline-flex h-9 w-full items-center justify-center bg-flowpm-primary hover:bg-flowpm-primary-hover",
+                    "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#5DCAA5] text-sm font-medium text-[#04342C] hover:opacity-90",
                   )}
                 >
                   Upgrade to Pro
                 </a>
               ) : (
-                <Button type="button" variant="default" className="mt-4 h-9 w-full" disabled title={subscriptionUpgradeHint()}>
+                <Button
+                  type="button"
+                  variant="default"
+                  className="mt-4 h-10 w-full rounded-lg bg-[#5DCAA5] text-[#04342C] hover:opacity-90"
+                  disabled
+                  title={subscriptionUpgradeHint()}
+                >
                   Upgrade to Pro
                 </Button>
               );
             } else if (tier.id === "pro" && currentTier === "agency") {
               cta = (
-                <p className="mt-4 text-center text-xs text-flowpm-muted">You&apos;re on Agency (includes Pro features).</p>
+                <p className="mt-4 text-center text-xs text-[#a8a8b8]">
+                  You&apos;re on Ultra (includes Pro features).
+                </p>
               );
             } else if (tier.id === "agency" && (showAgencyFromPro || showAgencyFromStarter) && canManageBilling) {
               const url = agencyCheckout;
@@ -231,20 +249,20 @@ export function SubscriptionPanel(props: {
                   rel="noopener noreferrer"
                   className={cn(
                     buttonVariants({ variant: "default" }),
-                    "mt-4 inline-flex h-9 w-full items-center justify-center bg-[#1a1a2e] text-white hover:opacity-90 dark:bg-black",
+                    "mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg border border-white/15 bg-[#1a1a1a] text-sm font-medium text-white hover:bg-white/10",
                   )}
                 >
-                  Upgrade to Agency
+                  Upgrade to Ultra
                 </a>
               ) : (
                 <Button
                   type="button"
                   variant="default"
-                  className="mt-4 h-9 w-full bg-[#1a1a2e] text-white hover:opacity-90 dark:bg-black"
+                  className="mt-4 h-10 w-full rounded-lg border border-white/15 bg-[#1a1a1a] text-white hover:bg-white/10"
                   disabled
                   title={subscriptionUpgradeHint()}
                 >
-                  Upgrade to Agency
+                  Upgrade to Ultra
                 </Button>
               );
             } else if (!canManageBilling && !isCurrent) {
@@ -254,52 +272,53 @@ export function SubscriptionPanel(props: {
             }
 
             return (
-              <Card
+              <div
                 key={tier.id}
                 className={cn(
-                  "flex flex-col overflow-hidden border-flowpm-border shadow-card",
-                  tier.id === "pro" && "ring-2 ring-flowpm-primary/40 lg:scale-[1.02]",
+                  "flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#111] shadow-lg",
+                  tier.id === "pro" && "ring-2 ring-[#5DCAA5]/75 lg:scale-[1.02]",
                 )}
               >
-                <div className={cn("border-b px-4 py-4", tier.headerClass)}>
+                <div className={cn("border-b border-white/10 px-4 py-4", tier.headerClass)}>
                   <p className="font-heading text-lg font-semibold">{tier.name}</p>
-                  <p className="mt-1 flex items-baseline gap-1">
+                  <p className="mt-1 flex flex-wrap items-baseline gap-1">
                     <span className="text-2xl font-bold">{tier.priceLine}</span>
                     <span className="text-sm opacity-90">{tier.priceSub}</span>
                   </p>
                 </div>
-                <CardContent className="flex flex-1 flex-col pt-4">
-                  <ul className="flex-1 space-y-2 text-sm text-flowpm-body">
+                <div className="flex flex-1 flex-col bg-[#0c0c0c] px-4 pb-4 pt-4">
+                  <ul className="flex-1 space-y-2.5 text-sm text-[#e8e4dc]/90">
                     {tier.features.map((f) => (
                       <li key={f} className="flex gap-2">
-                        <span className="mt-1.5 size-1 shrink-0 rounded-full bg-flowpm-primary/70" aria-hidden />
+                        <span className="mt-0.5 shrink-0 font-mono text-[#5DCAA5]" aria-hidden>
+                          —
+                        </span>
                         <span>{f}</span>
                       </li>
                     ))}
                   </ul>
                   {cta}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
 
-        <div className="mt-6 flex gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 dark:bg-emerald-950/30">
-          <Lightbulb className="mt-0.5 size-5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
-          <div className="text-sm text-flowpm-body">
-            <p className="font-medium text-emerald-900 dark:text-emerald-100">Pricing tip</p>
-            <p className="mt-1 text-xs text-flowpm-muted dark:text-emerald-200/80">
-              Offer <strong className="text-flowpm-body dark:text-emerald-100">annual billing</strong> with two months
-              free (about a 17% discount) to improve cash flow. Many SaaS products see 30–40% of customers choose annual
-              when it&apos;s visible at checkout.
+        <div className="mt-6 flex gap-3 rounded-xl border border-[#5DCAA5]/25 bg-[#5DCAA5]/10 p-4">
+          <Lightbulb className="mt-0.5 size-5 shrink-0 text-[#5DCAA5]" aria-hidden />
+          <div className="text-sm text-[#e8e4dc]">
+            <p className="font-medium text-[#5DCAA5]">Pricing tip</p>
+            <p className="mt-1 text-xs text-[#a8a8b8]">
+              Offer <strong className="text-[#e8e4dc]">annual billing</strong> with two months free (about a 17%
+              discount) to improve cash flow. Many teams choose annual when it&apos;s visible at checkout.
             </p>
           </div>
         </div>
 
-        <p className="mt-4 text-center text-xs text-flowpm-muted">
-          After payment, set <code className="rounded bg-flowpm-canvas px-1 py-0.5 font-mono text-[10px]">plan</code> on
+        <p className="mt-4 text-center text-xs text-[#a8a8b8]">
+          After payment, set <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[10px] text-[#e8e4dc]">plan</code> on
           the organization in Firestore (e.g. <code className="font-mono">pro</code>,{" "}
-          <code className="font-mono">agency</code>) or automate with Stripe webhooks.
+          <code className="font-mono">agency</code> for Ultra) or automate with Stripe webhooks.
         </p>
       </div>
     </div>

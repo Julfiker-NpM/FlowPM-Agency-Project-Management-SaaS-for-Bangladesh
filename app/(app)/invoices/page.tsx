@@ -27,7 +27,7 @@ export default function InvoicesPage() {
             <CardTitle className="font-heading text-lg">Invoices</CardTitle>
             <p className="text-sm text-flowpm-muted">
               Invoice generation is on <strong className="text-flowpm-body">Pro</strong> and{" "}
-              <strong className="text-flowpm-body">Agency</strong>.
+              <strong className="text-flowpm-body">Ultra</strong>.
             </p>
           </CardHeader>
           <CardContent>

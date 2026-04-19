@@ -1,6 +1,6 @@
 /**
- * Billing tiers — aligned with product pricing (Starter / Pro / Agency).
- * Enforced in UI; Firestore `organizations.plan` stores: free | pro | agency (aliases below).
+ * Billing tiers — Starter / Pro / Ultra (stored as `agency` in Firestore + Stripe env keys).
+ * Display prices are BDT (৳); plan logic is unchanged.
  */
 
 export type BillingTier = "starter" | "pro" | "agency";
@@ -46,7 +46,7 @@ export function planDisplayLabel(plan: string | null | undefined): string {
   const t = normalizeBillingTier(plan);
   if (t === "starter") return "Starter";
   if (t === "pro") return "Pro";
-  return "Agency";
+  return "Ultra";
 }
 
 export function getPlanLimits(plan: string | null | undefined): PlanLimitInfo {
@@ -85,10 +85,10 @@ export const PRICING_TIERS = [
   {
     id: "starter" as const,
     name: "Starter",
-    priceLine: "Free",
-    priceSub: "Forever",
+    priceLine: "৳0",
+    priceSub: "/ month",
     headerClass:
-      "bg-[#f5f0e8] text-flowpm-dark dark:bg-[#2a2635] dark:text-flowpm-body border-flowpm-border",
+      "bg-[#f5f0e8] text-[#1a1a2e] border-[#e8e4dc] dark:bg-[#f5f0e8] dark:text-[#1a1a2e] dark:border-[#e8e4dc]",
     features: [
       `Up to ${STARTER_MAX_PROJECTS} projects`,
       `${STARTER_MAX_MEMBERS} team members`,
@@ -100,9 +100,9 @@ export const PRICING_TIERS = [
   {
     id: "pro" as const,
     name: "Pro",
-    priceLine: "$19",
-    priceSub: "/ month",
-    headerClass: "bg-flowpm-primary text-white border-flowpm-primary",
+    priceLine: "৳1,499",
+    priceSub: "BDT / month",
+    headerClass: "bg-[#534AB7] text-white border-[#534AB7]",
     features: [
       "Unlimited projects",
       `Up to ${PRO_MAX_MEMBERS} members`,
@@ -114,10 +114,10 @@ export const PRICING_TIERS = [
   },
   {
     id: "agency" as const,
-    name: "Agency",
-    priceLine: "$49",
-    priceSub: "/ month",
-    headerClass: "bg-[#1a1a2e] text-white border-[#1a1a2e] dark:bg-black dark:border-flowpm-border",
+    name: "Ultra",
+    priceLine: "৳2,499",
+    priceSub: "BDT / month",
+    headerClass: "bg-black text-white border-black dark:bg-black dark:border-white/20",
     features: [
       "Unlimited everything",
       "Unlimited members",
