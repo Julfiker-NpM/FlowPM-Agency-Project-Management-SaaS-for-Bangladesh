@@ -18,7 +18,6 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Lightbulb, X } from "lucide-react";
-import { bdBkashCheckoutUrl, bdNagadCheckoutUrl } from "@/lib/flowpm/bd-payments";
 
 function usageBar(current: number, max: number | null) {
   if (max == null) return null;
@@ -35,19 +34,6 @@ function usageBar(current: number, max: number | null) {
 }
 
 type BillingChoice = "pro" | "agency";
-
-function checkoutUrlWithPlan(base: string, tier: BillingChoice): string {
-  const b = base.trim();
-  if (!b) return "";
-  try {
-    const u = new URL(b);
-    u.searchParams.set("plan", tier);
-    return u.toString();
-  } catch {
-    const join = b.includes("?") ? "&" : "?";
-    return `${b}${join}plan=${encodeURIComponent(tier)}`;
-  }
-}
 
 type ManageModalProps = {
   open: boolean;
@@ -78,12 +64,10 @@ function SubscriptionManageModal(props: ManageModalProps) {
     typeof process !== "undefined" ? process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL_URL?.trim() : "";
   const proCheckout = stripeCheckoutUrl("pro");
   const agencyCheckout = stripeCheckoutUrl("agency");
-  const bkashBase = bdBkashCheckoutUrl();
-  const nagadBase = bdNagadCheckoutUrl();
 
   const tierLabel = selectedTier === "pro" ? "Pro" : selectedTier === "agency" ? "Ultra" : null;
-  const bkashPayUrl = selectedTier && bkashBase ? checkoutUrlWithPlan(bkashBase, selectedTier) : "";
-  const nagadPayUrl = selectedTier && nagadBase ? checkoutUrlWithPlan(nagadBase, selectedTier) : "";
+  const bkashHref = selectedTier ? `/api/checkout/bkash?plan=${selectedTier}` : "";
+  const nagadHref = selectedTier ? `/api/checkout/nagad?plan=${selectedTier}` : "";
 
   if (!open) return null;
 
@@ -108,7 +92,7 @@ function SubscriptionManageModal(props: ManageModalProps) {
               Manage subscription
             </h2>
             <p className="mt-0.5 text-xs text-flowpm-muted">
-              Pick a plan, then pay with card (Stripe) or bKash / Nagad when available.
+              Pick a plan, then pay with card (Stripe) or continue with bKash / Nagad.
             </p>
           </div>
           <Button type="button" variant="ghost" size="icon" className="size-9 shrink-0" onClick={onClose} aria-label="Close">
@@ -302,49 +286,34 @@ function SubscriptionManageModal(props: ManageModalProps) {
           {selectedTier && tierLabel ? (
             <div className="mt-6 space-y-3 rounded-xl border border-flowpm-border bg-flowpm-canvas/40 p-4 dark:bg-white/5">
               <p className="font-medium text-flowpm-body">Pay for {tierLabel}</p>
-              <p className="text-xs text-flowpm-muted">Use bKash or Nagad to complete payment for the plan you selected.</p>
+              <p className="text-xs text-flowpm-muted">
+                Continue to bKash or Nagad checkout. If your team has not added a payment link yet, you will see short
+                instructions instead.
+              </p>
               <div className="flex flex-wrap gap-2">
-                {bkashPayUrl ? (
-                  <a
-                    href={bkashPayUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      buttonVariants({ variant: "default" }),
-                      "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#E2136E] text-white hover:opacity-90 sm:flex-none sm:px-6",
-                    )}
-                  >
-                    Pay with bKash
-                  </a>
-                ) : (
-                  <Button type="button" variant="secondary" className="h-10 flex-1 min-w-[140px] cursor-not-allowed sm:flex-none" disabled>
-                    Pay with bKash
-                  </Button>
-                )}
-                {nagadPayUrl ? (
-                  <a
-                    href={nagadPayUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      buttonVariants({ variant: "default" }),
-                      "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#f7941d] text-[#1a1a1a] hover:opacity-90 sm:flex-none sm:px-6",
-                    )}
-                  >
-                    Pay with Nagad
-                  </a>
-                ) : (
-                  <Button type="button" variant="secondary" className="h-10 flex-1 min-w-[140px] cursor-not-allowed sm:flex-none" disabled>
-                    Pay with Nagad
-                  </Button>
-                )}
+                <a
+                  href={bkashHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "default" }),
+                    "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#E2136E] text-white hover:opacity-90 sm:flex-none sm:px-6",
+                  )}
+                >
+                  Pay with bKash
+                </a>
+                <a
+                  href={nagadHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "default" }),
+                    "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#f7941d] text-[#1a1a1a] hover:opacity-90 sm:flex-none sm:px-6",
+                  )}
+                >
+                  Pay with Nagad
+                </a>
               </div>
-              {!bkashBase && !nagadBase ? (
-                <p className="text-xs text-flowpm-muted">
-                  bKash and Nagad checkout are not available on this site yet. You can still use card payment if Stripe is
-                  connected, or contact support.
-                </p>
-              ) : null}
             </div>
           ) : (
             <p className="mt-6 text-center text-xs text-flowpm-muted">
