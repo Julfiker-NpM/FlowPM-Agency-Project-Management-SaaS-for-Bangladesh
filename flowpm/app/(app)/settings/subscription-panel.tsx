@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import {
   getPlanLimits,
@@ -19,7 +19,6 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Lightbulb, X } from "lucide-react";
 import { bdBkashCheckoutUrl, bdNagadCheckoutUrl } from "@/lib/flowpm/bd-payments";
-import { Label } from "@/components/ui/label";
 
 function usageBar(current: number, max: number | null) {
   if (max == null) return null;
@@ -35,39 +34,35 @@ function usageBar(current: number, max: number | null) {
   );
 }
 
-const STORED_PLAN_OPTIONS = [
-  { value: "free", label: "Starter" },
-  { value: "pro", label: "Pro" },
-  { value: "agency", label: "Ultra" },
-] as const;
+type BillingChoice = "pro" | "agency";
 
-function planSelectOptions(current: string): { value: string; label: string }[] {
-  const base: { value: string; label: string }[] = STORED_PLAN_OPTIONS.map((o) => ({ ...o }));
-  if (!base.some((o) => o.value === current)) base.unshift({ value: current, label: `${current} (current)` });
-  return base;
+function checkoutUrlWithPlan(base: string, tier: BillingChoice): string {
+  const b = base.trim();
+  if (!b) return "";
+  try {
+    const u = new URL(b);
+    u.searchParams.set("plan", tier);
+    return u.toString();
+  } catch {
+    const join = b.includes("?") ? "&" : "?";
+    return `${b}${join}plan=${encodeURIComponent(tier)}`;
+  }
 }
 
 type ManageModalProps = {
   open: boolean;
   onClose: () => void;
-  orgId: string;
   plan: string;
   canManageBilling: boolean;
-  onPlanChanged?: () => void | Promise<void>;
 };
 
 function SubscriptionManageModal(props: ManageModalProps) {
-  const { open, onClose, orgId, plan, canManageBilling, onPlanChanged } = props;
-  const [adminPlan, setAdminPlan] = useState(plan);
-  const [adminSaving, setAdminSaving] = useState(false);
-  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const { open, onClose, plan, canManageBilling } = props;
+  const [selectedTier, setSelectedTier] = useState<BillingChoice | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setAdminPlan(plan);
-      setAdminMessage(null);
-    }
-  }, [open, plan]);
+    if (open) setSelectedTier(null);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,25 +78,12 @@ function SubscriptionManageModal(props: ManageModalProps) {
     typeof process !== "undefined" ? process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL_URL?.trim() : "";
   const proCheckout = stripeCheckoutUrl("pro");
   const agencyCheckout = stripeCheckoutUrl("agency");
-  const bkashUrl = bdBkashCheckoutUrl();
-  const nagadUrl = bdNagadCheckoutUrl();
-  const adminPlanOptions = useMemo(() => planSelectOptions(plan), [plan]);
+  const bkashBase = bdBkashCheckoutUrl();
+  const nagadBase = bdNagadCheckoutUrl();
 
-  async function saveAdminPlan() {
-    if (!canManageBilling) return;
-    setAdminSaving(true);
-    setAdminMessage(null);
-    try {
-      const db = getFirebaseDb();
-      await updateDoc(doc(db, "organizations", orgId), { plan: adminPlan });
-      setAdminMessage("Plan updated for this workspace.");
-      await onPlanChanged?.();
-    } catch {
-      setAdminMessage("Could not update plan. You may need owner or admin access.");
-    } finally {
-      setAdminSaving(false);
-    }
-  }
+  const tierLabel = selectedTier === "pro" ? "Pro" : selectedTier === "agency" ? "Ultra" : null;
+  const bkashPayUrl = selectedTier && bkashBase ? checkoutUrlWithPlan(bkashBase, selectedTier) : "";
+  const nagadPayUrl = selectedTier && nagadBase ? checkoutUrlWithPlan(nagadBase, selectedTier) : "";
 
   if (!open) return null;
 
@@ -109,7 +91,7 @@ function SubscriptionManageModal(props: ManageModalProps) {
     <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4" role="presentation">
       <button
         type="button"
-        className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+        className="absolute inset-0 z-[1] bg-black/50 backdrop-blur-[1px]"
         aria-label="Close"
         onClick={onClose}
       />
@@ -117,7 +99,8 @@ function SubscriptionManageModal(props: ManageModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="subscription-manage-title"
-        className="relative z-10 flex max-h-[min(92vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-flowpm-border bg-flowpm-surface shadow-2xl sm:rounded-2xl"
+        className="relative z-[2] flex max-h-[min(92vh,880px)] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-flowpm-border bg-flowpm-surface shadow-2xl sm:rounded-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-flowpm-border px-4 py-3 sm:px-5">
           <div>
@@ -125,7 +108,7 @@ function SubscriptionManageModal(props: ManageModalProps) {
               Manage subscription
             </h2>
             <p className="mt-0.5 text-xs text-flowpm-muted">
-              Compare plans, pay with bKash or Nagad, or use Stripe if your workspace has it enabled.
+              Pick a plan, then pay with card (Stripe) or bKash / Nagad when available.
             </p>
           </div>
           <Button type="button" variant="ghost" size="icon" className="size-9 shrink-0" onClick={onClose} aria-label="Close">
@@ -152,7 +135,7 @@ function SubscriptionManageModal(props: ManageModalProps) {
 
           <div className="rounded-2xl border border-white/10 bg-[#0d0d0d] p-4 sm:p-5 dark:border-white/10">
             <h3 className="font-heading text-base font-semibold tracking-tight text-[#e8e4dc]">Plans</h3>
-            <p className="mt-1 text-xs text-[#a8a8b8] sm:text-sm">Prices in BDT (৳). Upgrade anytime.</p>
+            <p className="mt-1 text-xs text-[#a8a8b8] sm:text-sm">Prices in BDT (৳). Choose a plan, then use payment below.</p>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {PRICING_TIERS.map((tier) => {
@@ -187,25 +170,41 @@ function SubscriptionManageModal(props: ManageModalProps) {
                 } else if (tier.id === "pro" && showProCta) {
                   const url = proCheckout;
                   cta = url ? (
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        buttonVariants({ variant: "default" }),
-                        "mt-3 inline-flex h-9 w-full items-center justify-center rounded-lg bg-[#5DCAA5] text-sm font-medium text-[#04342C] hover:opacity-90",
-                      )}
-                    >
-                      Upgrade to Pro (card)
-                    </a>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          buttonVariants({ variant: "default" }),
+                          "inline-flex h-9 w-full items-center justify-center rounded-lg bg-[#5DCAA5] text-sm font-medium text-[#04342C] hover:opacity-90",
+                        )}
+                      >
+                        Pay with card (Stripe)
+                      </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "h-9 w-full rounded-lg border-white/25 bg-transparent text-sm text-[#e8e4dc] hover:bg-white/10",
+                          selectedTier === "pro" && "ring-2 ring-[#5DCAA5]",
+                        )}
+                        onClick={() => setSelectedTier("pro")}
+                      >
+                        {selectedTier === "pro" ? "Pro — pay with bKash / Nagad below" : "Select Pro for bKash / Nagad"}
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       type="button"
                       variant="default"
-                      className="mt-3 h-9 w-full rounded-lg bg-[#5DCAA5] text-sm text-[#04342C] hover:opacity-90"
-                      disabled
+                      className={cn(
+                        "mt-3 h-9 w-full rounded-lg bg-[#5DCAA5] text-sm text-[#04342C] hover:opacity-90",
+                        selectedTier === "pro" && "ring-2 ring-white ring-offset-2 ring-offset-[#0c0c0c]",
+                      )}
+                      onClick={() => setSelectedTier("pro")}
                     >
-                      Upgrade to Pro (card)
+                      {selectedTier === "pro" ? "Pro selected — pay below" : "Select Pro"}
                     </Button>
                   );
                 } else if (tier.id === "pro" && currentTier === "agency") {
@@ -215,25 +214,41 @@ function SubscriptionManageModal(props: ManageModalProps) {
                 } else if (tier.id === "agency" && (showAgencyFromPro || showAgencyFromStarter) && canManageBilling) {
                   const url = agencyCheckout;
                   cta = url ? (
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        buttonVariants({ variant: "default" }),
-                        "mt-3 inline-flex h-9 w-full items-center justify-center rounded-lg border border-white/15 bg-[#1a1a1a] text-sm font-medium text-white hover:bg-white/10",
-                      )}
-                    >
-                      Upgrade to Ultra (card)
-                    </a>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          buttonVariants({ variant: "default" }),
+                          "inline-flex h-9 w-full items-center justify-center rounded-lg border border-white/15 bg-[#1a1a1a] text-sm font-medium text-white hover:bg-white/10",
+                        )}
+                      >
+                        Pay with card (Stripe)
+                      </a>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "h-9 w-full rounded-lg border-white/25 bg-transparent text-sm text-[#e8e4dc] hover:bg-white/10",
+                          selectedTier === "agency" && "ring-2 ring-[#5DCAA5]",
+                        )}
+                        onClick={() => setSelectedTier("agency")}
+                      >
+                        {selectedTier === "agency" ? "Ultra — pay with bKash / Nagad below" : "Select Ultra for bKash / Nagad"}
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       type="button"
                       variant="default"
-                      className="mt-3 h-9 w-full rounded-lg border border-white/15 bg-[#1a1a1a] text-sm text-white hover:bg-white/10"
-                      disabled
+                      className={cn(
+                        "mt-3 h-9 w-full rounded-lg border border-white/15 bg-[#1a1a1a] text-sm text-white hover:bg-white/10",
+                        selectedTier === "agency" && "ring-2 ring-[#5DCAA5]",
+                      )}
+                      onClick={() => setSelectedTier("agency")}
                     >
-                      Upgrade to Ultra (card)
+                      {selectedTier === "agency" ? "Ultra selected — pay below" : "Select Ultra"}
                     </Button>
                   );
                 } else if (!canManageBilling && !isCurrent) {
@@ -284,87 +299,59 @@ function SubscriptionManageModal(props: ManageModalProps) {
             </div>
           </div>
 
-          <div className="mt-6 space-y-3 rounded-xl border border-flowpm-border bg-flowpm-canvas/40 p-4 dark:bg-white/5">
-            <p className="font-medium text-flowpm-body">Pay with bKash or Nagad</p>
-            <p className="text-xs text-flowpm-muted">
-              Choose your upgrade above, then complete payment here. Your workspace admin can confirm your plan if
-              needed.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {bkashUrl ? (
-                <a
-                  href={bkashUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    buttonVariants({ variant: "default" }),
-                    "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#E2136E] text-white hover:opacity-90 sm:flex-none sm:px-6",
-                  )}
-                >
-                  Pay with bKash
-                </a>
-              ) : (
-                <Button type="button" variant="secondary" className="h-10 flex-1 min-w-[140px] sm:flex-none" disabled>
-                  Pay with bKash
-                </Button>
-              )}
-              {nagadUrl ? (
-                <a
-                  href={nagadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    buttonVariants({ variant: "default" }),
-                    "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#f7941d] text-[#1a1a1a] hover:opacity-90 sm:flex-none sm:px-6",
-                  )}
-                >
-                  Pay with Nagad
-                </a>
-              ) : (
-                <Button type="button" variant="secondary" className="h-10 flex-1 min-w-[140px] sm:flex-none" disabled>
-                  Pay with Nagad
-                </Button>
-              )}
-            </div>
-            {!bkashUrl && !nagadUrl ? (
-              <p className="text-xs text-flowpm-muted">Online payment for mobile banking is not set up for this site yet.</p>
-            ) : null}
-          </div>
-
-          {canManageBilling ? (
-            <div className="mt-6 space-y-3 rounded-xl border border-flowpm-border p-4">
-              <p className="font-medium text-flowpm-body">Workspace plan</p>
-              <p className="text-xs text-flowpm-muted">
-                For owners and admins: update the plan after payment is confirmed so limits apply for everyone.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="admin-plan-modal">Plan</Label>
-                  <select
-                    id="admin-plan-modal"
-                    className="flex h-10 w-full rounded-md border border-flowpm-border bg-flowpm-surface px-3 text-sm text-flowpm-body shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-flowpm-primary"
-                    value={adminPlan}
-                    onChange={(e) => setAdminPlan(e.target.value)}
+          {selectedTier && tierLabel ? (
+            <div className="mt-6 space-y-3 rounded-xl border border-flowpm-border bg-flowpm-canvas/40 p-4 dark:bg-white/5">
+              <p className="font-medium text-flowpm-body">Pay for {tierLabel}</p>
+              <p className="text-xs text-flowpm-muted">Use bKash or Nagad to complete payment for the plan you selected.</p>
+              <div className="flex flex-wrap gap-2">
+                {bkashPayUrl ? (
+                  <a
+                    href={bkashPayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "default" }),
+                      "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#E2136E] text-white hover:opacity-90 sm:flex-none sm:px-6",
+                    )}
                   >
-                    {adminPlanOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button
-                  type="button"
-                  className="h-10 bg-flowpm-primary hover:bg-flowpm-primary-hover"
-                  disabled={adminSaving || adminPlan === plan}
-                  onClick={() => void saveAdminPlan()}
-                >
-                  {adminSaving ? "Saving…" : "Apply plan"}
-                </Button>
+                    Pay with bKash
+                  </a>
+                ) : (
+                  <Button type="button" variant="secondary" className="h-10 flex-1 min-w-[140px] cursor-not-allowed sm:flex-none" disabled>
+                    Pay with bKash
+                  </Button>
+                )}
+                {nagadPayUrl ? (
+                  <a
+                    href={nagadPayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      buttonVariants({ variant: "default" }),
+                      "inline-flex h-10 flex-1 min-w-[140px] items-center justify-center bg-[#f7941d] text-[#1a1a1a] hover:opacity-90 sm:flex-none sm:px-6",
+                    )}
+                  >
+                    Pay with Nagad
+                  </a>
+                ) : (
+                  <Button type="button" variant="secondary" className="h-10 flex-1 min-w-[140px] cursor-not-allowed sm:flex-none" disabled>
+                    Pay with Nagad
+                  </Button>
+                )}
               </div>
-              {adminMessage ? <p className="text-xs text-flowpm-muted">{adminMessage}</p> : null}
+              {!bkashBase && !nagadBase ? (
+                <p className="text-xs text-flowpm-muted">
+                  bKash and Nagad checkout are not available on this site yet. You can still use card payment if Stripe is
+                  connected, or contact support.
+                </p>
+              ) : null}
             </div>
-          ) : null}
+          ) : (
+            <p className="mt-6 text-center text-xs text-flowpm-muted">
+              Select <strong className="text-flowpm-body">Pro</strong> or <strong className="text-flowpm-body">Ultra</strong> above
+              to unlock bKash and Nagad.
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -375,9 +362,8 @@ export function SubscriptionPanel(props: {
   orgId: string;
   plan: string;
   canManageBilling: boolean;
-  onPlanChanged?: () => void | Promise<void>;
 }) {
-  const { orgId, plan, canManageBilling, onPlanChanged } = props;
+  const { orgId, plan, canManageBilling } = props;
   const [loading, setLoading] = useState(true);
   const [projectCount, setProjectCount] = useState(0);
   const [seatCount, setSeatCount] = useState(0);
@@ -488,9 +474,7 @@ export function SubscriptionPanel(props: {
                 >
                   Manage subscription
                 </Button>
-                <p className="text-xs text-flowpm-muted">
-                  Open plans, bKash / Nagad, Stripe portal (if enabled), and workspace plan controls.
-                </p>
+                <p className="text-xs text-flowpm-muted">View plans and payment options (card, bKash, Nagad).</p>
               </>
             ) : (
               <p className="text-xs text-flowpm-muted">Only owners and admins can manage billing and upgrades.</p>
@@ -502,10 +486,8 @@ export function SubscriptionPanel(props: {
       <SubscriptionManageModal
         open={manageOpen && canManageBilling}
         onClose={() => setManageOpen(false)}
-        orgId={orgId}
         plan={plan}
         canManageBilling={canManageBilling}
-        onPlanChanged={onPlanChanged}
       />
     </div>
   );
